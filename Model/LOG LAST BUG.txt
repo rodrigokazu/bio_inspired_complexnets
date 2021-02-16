@@ -1,0 +1,90 @@
+Pruning 2493: 3
+Pruning 2494: 1
+Pruning 2495: 3
+Pruning 2496: 2
+Pruning 2497: 0
+Pruning 2498: 0
+Pruning 2499: 1
+{'a': 0.01, 'save_freq': 50, 'dmet': 'in-degree', 'save_net': True, 'nn': 50000, 'dits': 500, 'sr': 50000, 'pits': 2500, 'mn': 20, 'metaargs': 0.0, 'syn': 10, 'cm': False, 'meta': 'random', 'ff': 1.0, 'k': 0.2, 'save_fitness': False, 'r': 0.3333333333333333, 'pmet': 'hebbian-approx', 'save_to': './../../../Complex Networks 2010 - Storage/Large Nets/50k/Sim 9'}
+Creating meta-network ...
+Creating whole network ...
+0 synapses added ...
+Traceback (most recent call last):
+  File "./../Model/motaXT0.4.py", line 391, in <module>
+    main()
+  File "./../Model/motaXT0.4.py", line 169, in main
+    new_edges.append(get_new_random_edge())
+  File "./../Model/motaXT0.4.py", line 277, in get_new_random_edge
+    edge_reach = random.randint(1, neurons_per_module - v1['id'] - 1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 244, in randint
+    return self.randrange(a, b+1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 220, in randrange
+    raise ValueError, "empty range for randrange() (%d,%d, %d)" % (istart, istop, width)
+ValueError: empty range for randrange() (1,-334219, -334220)
+{'a': 0.01, 'save_freq': 50, 'dmet': 'in-degree', 'save_net': True, 'nn': 50000, 'dits': 500, 'sr': 50000, 'pits': 2500, 'mn': 20, 'metaargs': 3.0, 'syn': 10, 'cm': False, 'meta': 'lattice', 'ff': 1.0, 'k': 0.2, 'save_fitness': False, 'r': 0.3333333333333333, 'pmet': 'hebbian-approx', 'save_to': './../../../Complex Networks 2010 - Storage/Large Nets/50k/Sim 10'}
+Creating meta-network ...
+Creating whole network ...
+0 synapses added ...
+Traceback (most recent call last):
+  File "./../Model/motaXT0.4.py", line 391, in <module>
+    main()
+  File "./../Model/motaXT0.4.py", line 169, in main
+    new_edges.append(get_new_random_edge())
+  File "./../Model/motaXT0.4.py", line 277, in get_new_random_edge
+    edge_reach = random.randint(1, neurons_per_module - v1['id'] - 1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 244, in randint
+    return self.randrange(a, b+1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 220, in randrange
+    raise ValueError, "empty range for randrange() (%d,%d, %d)" % (istart, istop, width)
+ValueError: empty range for randrange() (1,-477278, -477279)
+{'a': 0.01, 'save_freq': 50, 'dmet': 'in-degree', 'save_net': True, 'nn': 50000, 'dits': 500, 'sr': 50000, 'pits': 2500, 'mn': 20, 'metaargs': 0.1, 'syn': 10, 'cm': False, 'meta': 'smallworld', 'ff': 1.0, 'k': 0.2, 'save_fitness': False, 'r': 0.3333333333333333, 'pmet': 'hebbian-approx', 'save_to': './../../../Complex Networks 2010 - Storage/Large Nets/50k/Sim 11'}
+Creating meta-network ...
+Creating whole network ...
+0 synapses added ...
+Traceback (most recent call last):
+  File "./../Model/motaXT0.4.py", line 391, in <module>
+    main()
+  File "./../Model/motaXT0.4.py", line 169, in main
+    new_edges.append(get_new_random_edge())
+  File "./../Model/motaXT0.4.py", line 277, in get_new_random_edge
+    edge_reach = random.randint(1, neurons_per_module - v1['id'] - 1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 244, in randint
+    return self.randrange(a, b+1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 220, in randrange
+    raise ValueError, "empty range for randrange() (%d,%d, %d)" % (istart, istop, width)
+ValueError: empty range for randrange() (1,-31994, -31995)
+{'a': 0.01, 'save_freq': 50, 'dmet': 'in-degree', 'save_net': True, 'nn': 50000, 'dits': 500, 'sr': 50000, 'pits': 2500, 'mn': 20, 'metaargs': 0.0, 'syn': 10, 'cm': False, 'meta': 'offdiagonal', 'ff': 1.0, 'k': 0.2, 'save_fitness': False, 'r': 0.3333333333333333, 'pmet': 'hebbian-approx', 'save_to': './../../../Complex Networks 2010 - Storage/Large Nets/50k/Sim 12'}
+Creating meta-network ...
+IGRAPH D--- 20 20 --
++ attr: id (v)
++ edges:
+0->1 1->2 2->3 3->4 4->5 5->6 6->7 7->8 8->9 9->10 10->11 11->12 12->13 13->14
+14->15 15->16 16->17 17->18 18->19 19->0
+Creating whole network ...
+0 synapses added ...
+Traceback (most recent call last):
+  File "./../Model/motaXT0.4.py", line 391, in <module>
+    main()
+  File "./../Model/motaXT0.4.py", line 169, in main
+    new_edges.append(get_new_random_edge())
+  File "./../Model/motaXT0.4.py", line 277, in get_new_random_edge
+    edge_reach = random.randint(1, neurons_per_module - v1['id'] - 1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 244, in randint
+    return self.randrange(a, b+1)
+  File "/home/kleber/anaconda3/envs/REDES_KLEBER/lib/python2.7/random.py", line 220, in randrange
+    raise ValueError, "empty range for randrange() (%d,%d, %d)" % (istart, istop, width)
+ValueError: empty range for randrange() (1,-445318, -445319)
+{'a': 0.01, 'save_freq': 50, 'dmet': 'in-degree', 'save_net': True, 'nn': 50000, 'dits': 500, 'sr': 50000, 'pits': 2500, 'mn': 1, 'metaargs': 0.0, 'syn': 10, 'cm': False, 'meta': 'full', 'ff': 1.0, 'k': 0.2, 'save_fitness': False, 'r': 0.3333333333333333, 'pmet': 'inv-hebbian-approx', 'save_to': './../../../Complex Networks 2010 - Storage/Large Nets/50k/Sim 5'}
+Creating meta-network ...
+Creating whole network ...
+0 synapses added ...
+1000 synapses added ...
+2000 synapses added ...
+3000 synapses added ...
+4000 synapses added ...
+5000 synapses added ...
+6000 synapses added ...
+7000 synapses added ...
+8000 synapses added ...
+9000 synapses added ...
+10000 synapses added ...
