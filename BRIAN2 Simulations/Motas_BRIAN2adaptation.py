@@ -6,7 +6,26 @@ import time
 # Function definitions #
 
 
-def motas_raster_and_hist(spikemon, Neuronumber):
+set_device('cpp_standalone')
+
+
+@implementation('cpp','''
+// Note that functions always need a return value at the moment
+double store_spike(int i, double t) {
+    static std::ofstream spike_file("C:/Users/pc1rss/Desktop/spikes.txt");
+    spike_file << i << " " << t << std::endl;
+    return 0.;  // unused
+}
+''')
+
+
+@check_units(i=1, t=second, result=1)
+def store_spike(i, t):
+
+    raise NotImplementedError('Use standalone mode')
+
+
+def motas_raster_and_hist(t):
 
     # Visualising the Spikes over 100 ms #
 
@@ -159,8 +178,30 @@ run(duration)  # Let the games begin!
 
 print("Finished the spiking simulation at: ", time.asctime(time.localtime(time.time())))
 
-
 motas_raster_and_hist(spikemon=M, Neuronumber=N)
 
 print("Mota's simulation in done saving the data.")
 
+
+"""
+This @network_operation does not work. 
+
+@network_operation(clock=Clock(dt=10*ms))
+def draw_gfx():  # This returns two lists i, t of the neuron indices and spike times for # all the recorded spikes
+
+    rasterline, = plot([], [], '.')  # plot points, hence the '.'
+    axis([0, 1, 0, N])
+    subplot(212)
+    traceline, = plot([], [])  # plot lines, hence no '.'
+    axis([0, 1, -0.06, -0.05])
+
+    i, t = zip(M.spikes)
+    rasterline.set_xdata(M.t / ms)
+    rasterline.set_ydata(M.i)
+
+    traceline.set_xdata(trace.t)
+
+    traceline.set_ydata(trace[0]) # and finally tell pylab to redraw it
+    plt.savefig("C:\\Users\\pc1rss\\Desktop\\Graph.png")
+    draw()
+"""
