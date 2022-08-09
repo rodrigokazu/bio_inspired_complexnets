@@ -25,13 +25,30 @@ def network_density_paths(main_path):
 
            Returns:
 
-              Networks path
+              Networks paths for 50k and 100k density simulations
              """
 
     fifty = main_path + "\\50k\\"
     hundred = main_path + "\\100k\\"
 
-    return fifty, hundred
+    fiftysims = os.listdir(fifty)
+    hundredsims = os.listdir(hundred)
+
+    fiftysims_paths = list()
+    hundredsims_paths = list()
+
+    for sim in fiftysims:
+
+        path = fifty + sim + "\\"
+        fiftysims_paths.append(path)
+
+    for sim in hundredsims:
+
+        path = hundred + sim + "\\"
+        hundredsims_paths.append(path)
+
+    return fiftysims_paths, hundredsims_paths
+
 
 def network_acquisition(density_path):
 
@@ -45,22 +62,22 @@ def network_acquisition(density_path):
 
            Networks path and list containing all the network files
           """
+    paths = density_path
 
-    path = Path(main_path)
+    net_paths = list()
 
-    net_paths = {}
+    for path in paths:
 
-    for path in path.iterdir():
+            edges_path = path + "\\Edges\\"
 
-        if path.is_dir():
+            nets = os.listdir(edges_path)
 
-            path_to_string = str(path)
+    for net in nets:
 
-            path_to_string = path_to_string + "\\Edges\\"
+        network_file = edges_path + net
+        net_paths.append(network_file)
 
-            nets = os.listdir(path_to_string)
-
-    return path_to_string, nets
+    return net_paths
 
 
 # Edit root folder accordingly #
@@ -73,4 +90,3 @@ fiftynets = network_acquisition(paths[0])
 
 hundrednets = network_acquisition(paths[1])
 
-print(main_path)
