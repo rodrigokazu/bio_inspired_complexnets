@@ -10,9 +10,9 @@
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
+import time
+import threading
 from igraph import *
-from pathlib import Path
-from os import listdir
 
 
 def network_density_paths(main_path):
@@ -39,12 +39,12 @@ def network_density_paths(main_path):
 
     for sim in fiftysims:
 
-        path = fifty + sim + "\\"
+        path = fifty + sim
         fiftysims_paths.append(path)
 
     for sim in hundredsims:
 
-        path = hundred + sim + "\\"
+        path = hundred + sim
         hundredsims_paths.append(path)
 
     return fiftysims_paths, hundredsims_paths
@@ -80,13 +80,50 @@ def network_acquisition(density_path):
     return net_paths
 
 
-# Edit root folder accordingly #
+def parallel_path_50k(fiftynets):
 
-main_path = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Projects\\complexnets\\complexnets_storage\\Large Nets"
+    for nets in fiftynets:
 
-paths = network_density_paths(main_path)
+        print("Path calculations for ", nets)
 
-fiftynets = network_acquisition(paths[0])
+        net = Graph.Read(nets)
 
-hundrednets = network_acquisition(paths[1])
+        net_vcount = net.vcount()
+        net_ecount = net.ecount()
+
+        print("Nodes:", net_vcount)
+        print("Edges:", net_ecount)
+
+        start = time.perf_counter()
+        print(f"[Path calculation started]")
+        print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
+        path = net.average_path_length()  # Target is what's running on the new thread
+
+        finish = time.perf_counter()
+        print(f'Finished in {round(finish - start, 2)} seconds (s). and the path length is {path}')
+
+    return 0
+
+
+def parallel_cluster_50k(fiftynets):
+
+    for nets in fiftynets:
+
+        print("Cluster calculations for ", nets)
+        net = Graph.Read(nets)
+
+        net_vcount = net.vcount()
+        net_ecount = net.ecount()
+
+        print("Nodes:", net_vcount)
+        print("Edges:", net_ecount)
+
+        start = time.perf_counter()
+        print(f"[Cluster calculation started]")
+        print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
+        clustering = net.transitivity_undirected()  # Target is what's running on the new thread
+        finish = time.perf_counter()
+        print(f'Finished in {round(finish - start, 2)} seconds (s). and the clustering coefficient is {clustering}')
+
+    return 0
 
