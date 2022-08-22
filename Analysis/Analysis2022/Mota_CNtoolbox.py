@@ -10,18 +10,49 @@
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
+import numpy as np
 import time
 import threading
 from igraph import *
 
 
-def network_density_paths(main_path):
+def analyse_50nets(fiftynets):
 
-    """ Acquires the paths to the biologically-inspired networks of 100k and 50k densitiesfor further analysis
+    """ Runs the analysis for the networks modelled at 50k neurons density and export results;
+        This function initiates all the threads and run the analysis in parallel for the same network;
+        The .join() function guarantees that all threads will finish at the same time
 
              Arguments:
-                 main_path(str): Paths to the directory where the recordings are stored in folders with the MEA
-                 number.
+
+                 fiftynets(list): Path for the networks to be analysed generated with the network_acquisition() function
+                  of this toolbox.
+
+           Returns:
+
+              Exported complex network statistics.
+
+|   """
+
+    t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,))
+    t2 = threading.Thread(target=parallel_averagepath_50k, args=(fiftynets,))
+    t3 = threading.Thread(target=parallel_shortestpath_50k, args=(fiftynets,))
+
+    t1.start()
+    t2.start()
+    t3.start()
+
+    t1.join()
+    t2.join()
+    t3.join()
+
+
+def network_density_paths(main_path):
+
+    """ Acquires the paths to the biologically-inspired networks of 100k and 50k densities for further analysis
+
+             Arguments:
+
+                 main_path(str): Paths to the directory where the networks are stored
 
            Returns:
 
@@ -55,22 +86,24 @@ def network_acquisition(density_path):
     """ Acquires the paths to the biologically-inspired networks for further analysis
 
           Arguments:
-              main_path(str): Paths to the directory where the recordings are stored in folders with the MEA
-              number.
+
+              density_path(str): Paths to the directory where the networks of correct density are stored
 
         Returns:
 
            Networks path and list containing all the network files
-          """
+
+        """
+
     paths = density_path
 
     net_paths = list()
 
     for path in paths:
 
-            edges_path = path + "\\Edges\\"
+            edges_path = path + "\\Edges\\"  # This is the folder structure chosen
 
-            nets = os.listdir(edges_path)
+            nets = os.listdir(edges_path)  # Obtains all the files in the folder.
 
     for net in nets:
 
@@ -80,11 +113,23 @@ def network_acquisition(density_path):
     return net_paths
 
 
-def parallel_path_50k(fiftynets):
+def parallel_averagepath_50k(fiftynets):
+
+    """ Computes the average path length for a list of networks generated with network_acquisition()
+
+              Arguments:
+
+                  fiftynets(list): List of networks generated with network_acquisition()
+
+            Returns:
+
+               Average path length
+
+            """
 
     for nets in fiftynets:
 
-        print("Path calculations for ", nets)
+        print("Average path calculations for ", nets)
 
         net = Graph.Read(nets)
 
@@ -100,16 +145,28 @@ def parallel_path_50k(fiftynets):
         path = net.average_path_length()  # Target is what's running on the new thread
 
         finish = time.perf_counter()
-        print(f'Finished in {round(finish - start, 2)} seconds (s). and the path length is {path}')
+        print(f'Finished in {round(finish - start, 2)} seconds (s) and the average path length is {path}')
 
-    return 0
+    return path
 
 
 def parallel_cluster_50k(fiftynets):
 
+    """ Computes the clustering coefficient for a list of networks generated with network_acquisition()
+
+                 Arguments:
+
+                     fiftynets(list): List of networks generated with network_acquisition()
+
+               Returns:
+
+                Clustering coefficient
+
+   """
+
     for nets in fiftynets:
 
-        print("Cluster calculations for ", nets)
+        print("Clustering calculations for ", nets)
         net = Graph.Read(nets)
 
         net_vcount = net.vcount()
@@ -123,7 +180,50 @@ def parallel_cluster_50k(fiftynets):
         print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
         clustering = net.transitivity_undirected()  # Target is what's running on the new thread
         finish = time.perf_counter()
-        print(f'Finished in {round(finish - start, 2)} seconds (s). and the clustering coefficient is {clustering}')
+        print(f'Finished in {round(finish - start, 2)} seconds (s) and the clustering coefficient is {clustering}')
+
+    return clustering
+
+
+def parallel_shortestpath_50k(fiftynets):
+
+    """ Computes the shortest path length for a list of networks generated with network_acquisition()
+
+                 Arguments:
+
+                     fiftynets(list): List of networks generated with network_acquisition()
+
+               Returns:
+
+                  Shortest path length
+
+   """
+
+    for nets in fiftynets:
+
+        print("Shortest path calculations for ", nets)
+
+        net = Graph.Read(nets)
+
+        net_vcount = net.vcount()
+        net_ecount = net.ecount()
+
+        print("Nodes:", net_vcount)
+        print("Edges:", net_ecount)
+
+        start = time.perf_counter()
+        print(f"[Path calculation started]")
+        print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
+        path = np.mean(net.shortest_paths())  # Target is what's running on the new thread
+
+        finish = time.perf_counter()
+        print(f'Finished in {round(finish - start, 2)} seconds (s) and the shortest path length is {path}')
+
+    return path
+
+
+def write_metrics(shortestpath, averagepath, clustering):
+
+
 
     return 0
-
