@@ -35,15 +35,15 @@ def analyse_50nets(fiftynets):
 
     t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,))
     t2 = threading.Thread(target=parallel_averagepath_50k, args=(fiftynets,))
-    t3 = threading.Thread(target=parallel_shortestpath_50k, args=(fiftynets,))
+    #t3 = threading.Thread(target=parallel_shortestpath_50k, args=(fiftynets,))
 
     t1.start()
-    t2.start()
-    t3.start()
+    #t2.start()
+    #t3.start()
 
     t1.join()
     t2.join()
-    t3.join()
+    #t3.join()
 
 
 def network_density_paths(main_path):
@@ -66,7 +66,7 @@ def network_density_paths(main_path):
     hundredsims = os.listdir(hundred)
 
     fiftysims_paths = list()
-    hundredsims_paths = list()
+    hundredsims_paths = list() # To export a list with the Sim folders "Sim 1", "Sim 2", etc.
 
     for sim in fiftysims:
 
@@ -95,22 +95,32 @@ def network_acquisition(density_path):
 
         """
 
-    paths = density_path
+    paths = density_path  # A list with the Sim folders "Sim 1", "Sim 2", etc.
 
-    net_paths = list()
+
+    all_sims = dict()
 
     for path in paths:
 
-            edges_path = path + "\\Edges\\"  # This is the folder structure chosen
+        edges_path = path + "\\Edges\\"  # This is the folder structure chosen
 
-            nets = os.listdir(edges_path)  # Obtains all the files in the folder.
+        nets = os.listdir(edges_path)  # Obtains all the files in the folder.
+        net_paths = list()
 
-    for net in nets:
+        for net in nets:
 
-        network_file = edges_path + net
-        net_paths.append(network_file)
+            network_file = edges_path + net
+            net_paths.append(network_file)
 
-    return net_paths
+        if path[-5] == "S":
+
+            all_sims[path[-5:]] = net_paths
+
+        else:
+
+            all_sims[path[-6:]] = net_paths
+
+    return all_sims
 
 
 def parallel_averagepath_50k(fiftynets):
@@ -126,26 +136,27 @@ def parallel_averagepath_50k(fiftynets):
                Average path length
 
             """
+    for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
 
-    for nets in fiftynets:
+        for nets in fiftynets[Sim]:
 
-        print("Average path calculations for ", nets)
+            print("Average path calculations for ", nets)
 
-        net = Graph.Read(nets)
+            net = Graph.Read(nets)
 
-        net_vcount = net.vcount()
-        net_ecount = net.ecount()
+            net_vcount = net.vcount()
+            net_ecount = net.ecount()
 
-        print("Nodes:", net_vcount)
-        print("Edges:", net_ecount)
+            print("Nodes:", net_vcount)
+            print("Edges:", net_ecount)
 
-        start = time.perf_counter()
-        print(f"[Path calculation started]")
-        print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
-        path = net.average_path_length()  # Target is what's running on the new thread
+            start = time.perf_counter()
+            print(f"[Path calculation started]")
+            print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
+            path = net.average_path_length()  # Target is what's running on the new thread
 
-        finish = time.perf_counter()
-        print(f'Finished in {round(finish - start, 2)} seconds (s) and the average path length is {path}')
+            finish = time.perf_counter()
+            print(f'Finished in {round(finish - start, 2)} seconds (s) and the average path length is {path}')
 
     return path
 
@@ -163,24 +174,25 @@ def parallel_cluster_50k(fiftynets):
                 Clustering coefficient
 
    """
+    for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
 
-    for nets in fiftynets:
+        for nets in fiftynets[Sim]:
 
-        print("Clustering calculations for ", nets)
-        net = Graph.Read(nets)
+            print("Clustering calculations for ", nets)
+            net = Graph.Read(nets)
 
-        net_vcount = net.vcount()
-        net_ecount = net.ecount()
+            net_vcount = net.vcount()
+            net_ecount = net.ecount()
 
-        print("Nodes:", net_vcount)
-        print("Edges:", net_ecount)
+            print("Nodes:", net_vcount)
+            print("Edges:", net_ecount)
 
-        start = time.perf_counter()
-        print(f"[Cluster calculation started]")
-        print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
-        clustering = net.transitivity_undirected()  # Target is what's running on the new thread
-        finish = time.perf_counter()
-        print(f'Finished in {round(finish - start, 2)} seconds (s) and the clustering coefficient is {clustering}')
+            start = time.perf_counter()
+            print(f"[Cluster calculation started]")
+            print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
+            clustering = net.transitivity_undirected()  # Target is what's running on the new thread
+            finish = time.perf_counter()
+            print(f'Finished in {round(finish - start, 2)} seconds (s) and the clustering coefficient is {clustering}')
 
     return clustering
 
@@ -199,25 +211,27 @@ def parallel_shortestpath_50k(fiftynets):
 
    """
 
-    for nets in fiftynets:
+    for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
 
-        print("Shortest path calculations for ", nets)
+        for nets in fiftynets[Sim]:
 
-        net = Graph.Read(nets)
+            print("Shortest path calculations for ", nets)
 
-        net_vcount = net.vcount()
-        net_ecount = net.ecount()
+            net = Graph.Read(nets)
 
-        print("Nodes:", net_vcount)
-        print("Edges:", net_ecount)
+            net_vcount = net.vcount()
+            net_ecount = net.ecount()
 
-        start = time.perf_counter()
-        print(f"[Path calculation started]")
-        print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
-        path = np.mean(net.shortest_paths())  # Target is what's running on the new thread
+            print("Nodes:", net_vcount)
+            print("Edges:", net_ecount)
 
-        finish = time.perf_counter()
-        print(f'Finished in {round(finish - start, 2)} seconds (s) and the shortest path length is {path}')
+            start = time.perf_counter()
+            print(f"[Path calculation started]")
+            print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
+            path = np.mean(net.shortest_paths())  # Target is what's running on the new thread
+
+            finish = time.perf_counter()
+            print(f'Finished in {round(finish - start, 2)} seconds (s) and the shortest path length is {path}')
 
     return path
 
