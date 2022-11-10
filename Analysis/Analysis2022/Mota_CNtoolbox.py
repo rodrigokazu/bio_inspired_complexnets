@@ -43,7 +43,7 @@ def analyse_50nets(fiftynets, exportpath):
 
     t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,exportpath))
     t2 = threading.Thread(target=parallel_averagepath_50k, args=(fiftynets, exportpath))
-    t3 = threading.Thread(target=parallel_shortestpath_50k, args=(fiftynets,))
+    t3 = threading.Thread(target=parallel_density_50k, args=(fiftynets, exportpath))
 
     t1.start()
     t2.start()
@@ -155,8 +155,6 @@ def parallel_averagepath_50k(fiftynets, exportpath):
 
         for nets in fiftynets[Sim]:
 
-            print("Average path calculations for ", nets)
-
             net = Graph.Read(nets)
 
             net_vcount = net.vcount()
@@ -204,7 +202,6 @@ def parallel_cluster_50k(fiftynets, exportpath):
 
         for nets in fiftynets[Sim]:
 
-            print("Clustering calculations for ", nets)
             net = Graph.Read(nets)
 
             net_vcount = net.vcount()
@@ -228,9 +225,12 @@ def parallel_cluster_50k(fiftynets, exportpath):
     return averagecluster
 
 
-def parallel_shortestpath_50k(fiftynets):
+def parallel_density_50k(fiftynets, exportpath):
 
-    """ Computes the shortest path length for a list of networks generated with network_acquisition()
+    """ Computes the density for a list of networks generated with network_acquisition()
+    The density of a graph is simply the ratio of the actual number of its edges and the largest possible number of
+    edges it could have. The maximum number of edges depends on interpretation: are vertices allowed to be connected to
+     themselves? This is controlled by the loops parameter.
 
                  Arguments:
 
@@ -238,15 +238,16 @@ def parallel_shortestpath_50k(fiftynets):
 
                Returns:
 
-                  Shortest path length
+                  CSV of densities for all networks and simulations
 
    """
+    alldensities = dict()
 
     for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
 
-        for nets in fiftynets[Sim]:
+        alldensities[Sim] = dict()
 
-            print("Shortest path calculations for ", nets)
+        for nets in fiftynets[Sim]:
 
             net = Graph.Read(nets)
 
@@ -256,15 +257,20 @@ def parallel_shortestpath_50k(fiftynets):
             print("Nodes:", net_vcount)
             print("Edges:", net_ecount)
 
-            start = time.perf_counter()
-            print(f"[Path calculation started]")
-            print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
-            path = np.mean(net.shortest_paths())
+            print(f"[Density calculation started]")
+            print(f"[Calculating density on thread number ] {threading.current_thread()}")
+            density = net.density(loops=False)
 
-            finish = time.perf_counter()
-            print(f'Finished in {round(finish - start, 2)} seconds (s) and the shortest path length is {path}')
+            print(f'The density is is {density}')
 
-    return path
+            label = network_labelling(netpath=nets)
+            name = "Density.csv"
+
+            alldensities[Sim][label[0]] = density
+
+            write_metrics(metric=alldensities, exportpath=exportpath, name=name)
+
+    return density
 
 
 def write_metrics(metric, exportpath, name):
