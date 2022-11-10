@@ -24,7 +24,7 @@ import threading
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
-def analyse_50nets(fiftynets, exportpath):
+def analyse_allnets(allnets, exportpath):
 
     """ Runs the analysis for the networks modelled at 50k neurons density and export results;
         This function initiates all the threads and run the analysis in parallel for the same network;
@@ -32,7 +32,7 @@ def analyse_50nets(fiftynets, exportpath):
 
              Arguments:
 
-                 fiftynets(list): Path for the networks to be analysed generated with the network_acquisition() function
+                 allnets(list): Path for the networks to be analysed generated with the network_acquisition() function
                   of this toolbox.
 
            Returns:
@@ -41,9 +41,9 @@ def analyse_50nets(fiftynets, exportpath):
 
 |   """
 
-    t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,exportpath))
-    t2 = threading.Thread(target=parallel_averagepath_50k, args=(fiftynets, exportpath))
-    t3 = threading.Thread(target=parallel_density_50k, args=(fiftynets, exportpath))
+    t1 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
+    t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
+    t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
 
     t1.start()
     t2.start()
@@ -69,7 +69,6 @@ def network_acquisition(density_path):
         """
 
     paths = density_path  # A list with the Sim folders "Sim 1", "Sim 2", etc.
-
 
     all_sims = dict()
 
@@ -131,13 +130,13 @@ def network_density_paths(main_path):
     return fiftysims_paths, hundredsims_paths
 
 
-def parallel_averagepath_50k(fiftynets, exportpath):
+def parallel_averagepath(allnets, exportpath):
 
     """ Computes the average path length for a list of networks generated with network_acquisition()
 
       Arguments:
 
-          fiftynets(list): List of networks generated with network_acquisition()
+          allnets(list): List of networks generated with network_acquisition()
           exportpath(str): Path to export the dataset as a csv
 
            Returns:
@@ -149,11 +148,11 @@ def parallel_averagepath_50k(fiftynets, exportpath):
     averagepaths = dict()
     netnumbers = list()
 
-    for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
         averagepaths[Sim] = dict()
 
-        for nets in fiftynets[Sim]:
+        for nets in allnets[Sim]:
 
             net = Graph.Read(nets)
 
@@ -174,18 +173,18 @@ def parallel_averagepath_50k(fiftynets, exportpath):
 
             averagepaths[Sim][label[0]] = path
 
-            write_metrics(metric=averagepaths, exportpath=exportpath, name=name)
+            write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
 
     return averagepaths
 
 
-def parallel_cluster_50k(fiftynets, exportpath):
+def parallel_cluster(allnets, exportpath):
 
     """ Computes the clustering coefficient for a list of networks generated with network_acquisition()
 
                  Arguments:
 
-                     fiftynets(list): List of networks generated with network_acquisition()
+                     allnets(list): List of networks generated with network_acquisition()
                      exportpath(str): Path to export the dataset as a csv
 
                Returns:
@@ -196,11 +195,11 @@ def parallel_cluster_50k(fiftynets, exportpath):
 
     averagecluster = dict()
 
-    for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
         averagecluster[Sim] = dict()
 
-        for nets in fiftynets[Sim]:
+        for nets in allnets[Sim]:
 
             net = Graph.Read(nets)
 
@@ -220,12 +219,12 @@ def parallel_cluster_50k(fiftynets, exportpath):
 
             averagecluster[Sim][label[0]] = clustering
 
-            write_metrics(metric=averagecluster, exportpath=exportpath, name=name)
+            write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
 
     return averagecluster
 
 
-def parallel_density_50k(fiftynets, exportpath):
+def parallel_density(allnets, exportpath):
 
     """ Computes the density for a list of networks generated with network_acquisition()
     The density of a graph is simply the ratio of the actual number of its edges and the largest possible number of
@@ -234,7 +233,7 @@ def parallel_density_50k(fiftynets, exportpath):
 
                  Arguments:
 
-                     fiftynets(list): List of networks generated with network_acquisition()
+                     allnets(list): List of networks generated with network_acquisition()
 
                Returns:
 
@@ -243,11 +242,11 @@ def parallel_density_50k(fiftynets, exportpath):
    """
     alldensities = dict()
 
-    for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
         alldensities[Sim] = dict()
 
-        for nets in fiftynets[Sim]:
+        for nets in allnets[Sim]:
 
             net = Graph.Read(nets)
 
@@ -261,19 +260,19 @@ def parallel_density_50k(fiftynets, exportpath):
             print(f"[Calculating density on thread number ] {threading.current_thread()}")
             density = net.density(loops=False)
 
-            print(f'The density is is {density}')
+            print(f'The density is {density}')
 
             label = network_labelling(netpath=nets)
             name = "Density.csv"
 
             alldensities[Sim][label[0]] = density
 
-            write_metrics(metric=alldensities, exportpath=exportpath, name=name)
+            write_metrics(metric=alldensities, exportpath=exportpath, name=name, label=label)
 
     return density
 
 
-def write_metrics(metric, exportpath, name):
+def write_metrics(metric, exportpath, name, label):
 
     """ Writes the results of the analysis for the networks modelled at 50k neurons density and export results;
 
@@ -289,7 +288,7 @@ def write_metrics(metric, exportpath, name):
 |   """
 
     df = DataFrame(data=metric)
-    # df['Net number'] = label[1]
+    df.append([{'NetNumber': label[1]}], ignore_index=True)
     file = exportpath + name
     df.to_csv(file)
 
