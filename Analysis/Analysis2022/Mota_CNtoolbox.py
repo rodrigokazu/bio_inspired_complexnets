@@ -10,13 +10,21 @@
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
+from igraph import *
+from pandas import *
+
 import numpy as np
 import time
 import threading
-from igraph import *
 
 
-def analyse_50nets(fiftynets):
+
+# ----------------------------------------------------------------------------------------------------------------- #
+# Data analysis #
+# ----------------------------------------------------------------------------------------------------------------- #
+
+
+def analyse_50nets(fiftynets, exportpath):
 
     """ Runs the analysis for the networks modelled at 50k neurons density and export results;
         This function initiates all the threads and run the analysis in parallel for the same network;
@@ -33,52 +41,17 @@ def analyse_50nets(fiftynets):
 
 |   """
 
-    t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,))
-    t2 = threading.Thread(target=parallel_averagepath_50k, args=(fiftynets,))
+    #t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,))
+    t2 = threading.Thread(target=parallel_averagepath_50k, args=(fiftynets, exportpath))
     #t3 = threading.Thread(target=parallel_shortestpath_50k, args=(fiftynets,))
 
-    t1.start()
-    #t2.start()
+    #t1.start()
+    t2.start()
     #t3.start()
 
-    t1.join()
+    #t1.join()
     t2.join()
     #t3.join()
-
-
-def network_density_paths(main_path):
-
-    """ Acquires the paths to the biologically-inspired networks of 100k and 50k densities for further analysis
-
-             Arguments:
-
-                 main_path(str): Paths to the directory where the networks are stored
-
-           Returns:
-
-              Networks paths for 50k and 100k density simulations
-             """
-
-    fifty = main_path + "\\50k\\"
-    hundred = main_path + "\\100k\\"
-
-    fiftysims = os.listdir(fifty)
-    hundredsims = os.listdir(hundred)
-
-    fiftysims_paths = list()
-    hundredsims_paths = list() # To export a list with the Sim folders "Sim 1", "Sim 2", etc.
-
-    for sim in fiftysims:
-
-        path = fifty + sim
-        fiftysims_paths.append(path)
-
-    for sim in hundredsims:
-
-        path = hundred + sim
-        hundredsims_paths.append(path)
-
-    return fiftysims_paths, hundredsims_paths
 
 
 def network_acquisition(density_path):
@@ -123,20 +96,60 @@ def network_acquisition(density_path):
     return all_sims
 
 
-def parallel_averagepath_50k(fiftynets):
+def network_density_paths(main_path):
+
+    """ Acquires the paths to the biologically-inspired networks of 100k and 50k densities for further analysis
+
+             Arguments:
+
+                 main_path(str): Paths to the directory where the networks are stored
+
+           Returns:
+
+              Networks paths for 50k and 100k density simulations
+             """
+
+    fifty = main_path + "\\50k\\"
+    hundred = main_path + "\\100k\\"
+
+    fiftysims = os.listdir(fifty)
+    hundredsims = os.listdir(hundred)
+
+    fiftysims_paths = list()
+    hundredsims_paths = list() # To export a list with the Sim folders "Sim 1", "Sim 2", etc.
+
+    for sim in fiftysims:
+
+        path = fifty + sim
+        fiftysims_paths.append(path)
+
+    for sim in hundredsims:
+
+        path = hundred + sim
+        hundredsims_paths.append(path)
+
+    return fiftysims_paths, hundredsims_paths
+
+
+def parallel_averagepath_50k(fiftynets, exportpath):
 
     """ Computes the average path length for a list of networks generated with network_acquisition()
 
-              Arguments:
+          Arguments:
 
-                  fiftynets(list): List of networks generated with network_acquisition()
+              fiftynets(list): List of networks generated with network_acquisition()
 
-            Returns:
+        Returns:
 
-               Average path length
+           Average path length
 
-            """
+        """
+
+    averagepaths = dict()
+
     for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
+
+        averagepaths[Sim] = dict()
 
         for nets in fiftynets[Sim]:
 
@@ -150,15 +163,20 @@ def parallel_averagepath_50k(fiftynets):
             print("Nodes:", net_vcount)
             print("Edges:", net_ecount)
 
-            start = time.perf_counter()
             print(f"[Path calculation started]")
             print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
             path = net.average_path_length()  # Target is what's running on the new thread
 
-            finish = time.perf_counter()
-            print(f'Finished in {round(finish - start, 2)} seconds (s) and the average path length is {path}')
+            print(f'The average path length is {path}')
 
-    return path
+            averagepaths[Sim][network_labelling(nets)[0]] = path
+
+            df = DataFrame(data=averagepaths)
+            df['Net number'] = network_labelling(nets)[1]
+            file = exportpath + "AveragePath.csv"
+            df.to_csv(file)
+
+    return averagepaths
 
 
 def parallel_cluster_50k(fiftynets):
@@ -236,8 +254,80 @@ def parallel_shortestpath_50k(fiftynets):
     return path
 
 
-def write_metrics(shortestpath, averagepath, clustering):
+def write_metrics(averagepaths):
+
+    """ Writes the results of the analysis for the networks modelled at 50k neurons density and export results;
 
 
+         Arguments:
 
-    return 0
+             averagepath(list): Dataset containing the average path length for the networks analysed
+
+       Returns:
+
+          Exported complex network statistics.
+
+|   """
+
+    statistics = DataFrame(data=averagepaths)
+
+    return statistics
+
+
+# ----------------------------------------------------------------------------------------------------------------- #
+# Support functions #
+# ----------------------------------------------------------------------------------------------------------------- #
+
+
+def network_labelling(netpath):
+
+    """ Support function to properly label the networks in the dataframes and in the exports
+
+             Arguments:
+
+                 netpath(str):Path of the network
+
+           Returns:
+
+              Label (str)
+
+           """
+
+    char = -8
+    counter = 1
+
+    while netpath[char].isdigit() == True:
+
+        char = char - 1
+        counter = counter + 1
+
+    if char == -8:
+
+        if netpath[char] == "h":
+
+            label = "death"+netpath[-7]
+
+            return label, netpath[-7]
+
+        else:
+
+            label = "pruning"+netpath[-7]
+
+            return label, netpath[-7]
+
+    else:
+
+        counter = counter * -1
+        start = -6 + counter  # Playing with slicing
+
+        if netpath[char] == "h":
+
+            label = "death" + netpath[start:-6]
+
+            return label, netpath[start:-6]
+
+        else:
+
+            label = "pruning" + netpath[start:-6]
+
+            return label, netpath[start:-6]
