@@ -41,17 +41,17 @@ def analyse_50nets(fiftynets, exportpath):
 
 |   """
 
-    #t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,))
+    t1 = threading.Thread(target=parallel_cluster_50k, args=(fiftynets,exportpath))
     t2 = threading.Thread(target=parallel_averagepath_50k, args=(fiftynets, exportpath))
-    #t3 = threading.Thread(target=parallel_shortestpath_50k, args=(fiftynets,))
+    t3 = threading.Thread(target=parallel_shortestpath_50k, args=(fiftynets,))
 
-    #t1.start()
+    t1.start()
     t2.start()
-    #t3.start()
+    t3.start()
 
-    #t1.join()
+    t1.join()
     t2.join()
-    #t3.join()
+    t3.join()
 
 
 def network_acquisition(density_path):
@@ -135,17 +135,19 @@ def parallel_averagepath_50k(fiftynets, exportpath):
 
     """ Computes the average path length for a list of networks generated with network_acquisition()
 
-          Arguments:
+      Arguments:
 
-              fiftynets(list): List of networks generated with network_acquisition()
+          fiftynets(list): List of networks generated with network_acquisition()
+          exportpath(str): Path to export the dataset as a csv
 
-        Returns:
+           Returns:
 
-           Average path length
+            Average path exported as csv
 
         """
 
     averagepaths = dict()
+    netnumbers = list()
 
     for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
 
@@ -169,30 +171,36 @@ def parallel_averagepath_50k(fiftynets, exportpath):
 
             print(f'The average path length is {path}')
 
-            averagepaths[Sim][network_labelling(nets)[0]] = path
+            label = network_labelling(nets)
+            name = "AveragePath.csv"
 
-            df = DataFrame(data=averagepaths)
-            df['Net number'] = network_labelling(nets)[1]
-            file = exportpath + "AveragePath.csv"
-            df.to_csv(file)
+            averagepaths[Sim][label[0]] = path
+
+            write_metrics(metric=averagepaths, exportpath=exportpath, name=name)
 
     return averagepaths
 
 
-def parallel_cluster_50k(fiftynets):
+def parallel_cluster_50k(fiftynets, exportpath):
 
     """ Computes the clustering coefficient for a list of networks generated with network_acquisition()
 
                  Arguments:
 
                      fiftynets(list): List of networks generated with network_acquisition()
+                     exportpath(str): Path to export the dataset as a csv
 
                Returns:
 
-                Clustering coefficient
+                Clustering coefficients exported as csv
 
    """
+
+    averagecluster = dict()
+
     for Sim in fiftynets:  # Fifty nets is a dict with Sims as keys
+
+        averagecluster[Sim] = dict()
 
         for nets in fiftynets[Sim]:
 
@@ -205,14 +213,19 @@ def parallel_cluster_50k(fiftynets):
             print("Nodes:", net_vcount)
             print("Edges:", net_ecount)
 
-            start = time.perf_counter()
             print(f"[Cluster calculation started]")
             print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
             clustering = net.transitivity_undirected()  # Target is what's running on the new thread
-            finish = time.perf_counter()
-            print(f'Finished in {round(finish - start, 2)} seconds (s) and the clustering coefficient is {clustering}')
+            print(f'The clustering coefficient is {clustering}')
 
-    return clustering
+            label = network_labelling(netpath=nets)
+            name = "AverageClustering.csv"
+
+            averagecluster[Sim][label[0]] = clustering
+
+            write_metrics(metric=averagecluster, exportpath=exportpath, name=name)
+
+    return averagecluster
 
 
 def parallel_shortestpath_50k(fiftynets):
@@ -246,7 +259,7 @@ def parallel_shortestpath_50k(fiftynets):
             start = time.perf_counter()
             print(f"[Path calculation started]")
             print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
-            path = np.mean(net.shortest_paths())  # Target is what's running on the new thread
+            path = np.mean(net.shortest_paths())
 
             finish = time.perf_counter()
             print(f'Finished in {round(finish - start, 2)} seconds (s) and the shortest path length is {path}')
@@ -254,7 +267,7 @@ def parallel_shortestpath_50k(fiftynets):
     return path
 
 
-def write_metrics(averagepaths):
+def write_metrics(metric, exportpath, name):
 
     """ Writes the results of the analysis for the networks modelled at 50k neurons density and export results;
 
@@ -269,7 +282,10 @@ def write_metrics(averagepaths):
 
 |   """
 
-    statistics = DataFrame(data=averagepaths)
+    df = DataFrame(data=metric)
+    # df['Net number'] = label[1]
+    file = exportpath + name
+    df.to_csv(file)
 
     return statistics
 
