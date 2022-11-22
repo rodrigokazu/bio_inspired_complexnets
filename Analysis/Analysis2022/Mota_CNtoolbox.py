@@ -46,17 +46,20 @@ def analyse_allnets(allnets, exportpath):
     t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     t4 = threading.Thread(target=plot_degree_distribution, args=(allnets, exportpath))
+    t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
 
 
     t1.start()
     t2.start()
     t3.start()
     t4.start()
+    t5.start()
 
     t1.join()
     t2.join()
     t3.join()
     t4.join()
+    t5.join()
 
 
 def network_acquisition(density_path):
@@ -161,15 +164,9 @@ def parallel_averagepath(allnets, exportpath):
 
             net = Graph.Read(nets)
 
-            net_vcount = net.vcount()
-            net_ecount = net.ecount()
-
-            print("Nodes:", net_vcount)
-            print("Edges:", net_ecount)
-
             print(f'Computing path lenght for {nets}')
             print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
-            path = net.average_path_length()  # Target is what's running on the new thread
+            path = net.average_path_length()
 
             print(f'The average path length is {path}')
 
@@ -178,10 +175,11 @@ def parallel_averagepath(allnets, exportpath):
 
             averagepaths[Sim][label[0]] = path
 
-            write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
-
             del net
             gc.collect()
+
+        print(f'Writing to *.csv')
+        write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
 
     return averagepaths
 
@@ -211,12 +209,6 @@ def parallel_cluster(allnets, exportpath):
 
             net = Graph.Read(nets)
 
-            net_vcount = net.vcount()
-            net_ecount = net.ecount()
-
-            print("Nodes:", net_vcount)
-            print("Edges:", net_ecount)
-
             print(f'Computing clustering for {nets}')
             print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
             clustering = net.transitivity_undirected()  # Target is what's running on the new thread
@@ -227,10 +219,11 @@ def parallel_cluster(allnets, exportpath):
 
             averagecluster[Sim][label[0]] = clustering
 
-            write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
-
             del net
             gc.collect()
+
+        print(f'Writing to *.csv')
+        write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
 
     return averagecluster
 
@@ -261,12 +254,6 @@ def parallel_density(allnets, exportpath):
 
             net = Graph.Read(nets)
 
-            net_vcount = net.vcount()
-            net_ecount = net.ecount()
-
-            print("Nodes:", net_vcount)
-            print("Edges:", net_ecount)
-
             print(f'Computing density for {nets}')
             print(f"[Calculating density on thread number ] {threading.current_thread()}")
             density = net.density(loops=False)
@@ -278,12 +265,59 @@ def parallel_density(allnets, exportpath):
 
             alldensities[Sim][label[0]] = density
 
-            write_metrics(metric=alldensities, exportpath=exportpath, name=name, label=label)
+            del net
+            gc.collect()
+
+        print(f'Writing to *.csv')
+        write_metrics(metric=alldensities, exportpath=exportpath, name=name, label=label)
+
+    return density
+
+
+def parallel_giantcomponent(allnets, exportpath):
+
+    """ Computes the giant compnent for a list of networks generated with network_acquisition()
+
+                 Arguments:
+
+                     allnets(list): List of networks generated with network_acquisition()
+
+               Returns:
+
+                  CSV of giant components for all networks and simulations
+
+   """
+    gcs = dict()
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        gcs[Sim] = dict()
+
+        for nets in allnets[Sim]:
+
+            net = Graph.Read(nets)
+
+            print(f'Computing giant component for {nets}')
+            print(f"[Calculating GC on thread number ] {threading.current_thread()}")
+
+            # giant component size
+            _gc = net.as_undirected().decompose(mode=WEAK, maxcompno=1, minelements=2)[0]
+            _gcs = len(_gc.vs)
+
+            print(f'The GC is {_gcs}')
+
+            label = network_labelling(netpath=nets)
+            name = "GC.csv"
+
+            gcs[Sim][label[0]] = _gcs
 
             del net
             gc.collect()
 
-    return density
+        print(f'Writing to *.csv')
+        write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
+
+    return _gcs
 
 
 def write_metrics(metric, exportpath, name, label):
@@ -302,7 +336,7 @@ def write_metrics(metric, exportpath, name, label):
 |   """
 
     df = DataFrame(data=metric)
-    df.assign(NetNumber=label[1])
+    #df.assign(NetNumber=label[1])
     file = exportpath + name
     df.to_csv(file)
 
