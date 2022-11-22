@@ -13,10 +13,11 @@
 from igraph import *
 from pandas import *
 
+import gc
 import numpy as np
-import time
+import matplotlib.pyplot as plt
+import seaborn as sns
 import threading
-
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
@@ -30,28 +31,32 @@ def analyse_allnets(allnets, exportpath):
         This function initiates all the threads and run the analysis in parallel for the same network;
         The .join() function guarantees that all threads will finish at the same time
 
-             Arguments:
+         Arguments:
 
-                 allnets(list): Path for the networks to be analysed generated with the network_acquisition() function
-                  of this toolbox.
+             allnets(list): Path for the networks to be analysed generated with the network_acquisition() function
+              of this toolbox.
 
-           Returns:
+          Returns:
 
-              Exported complex network statistics.
+          Exported complex network statistics.
 
 |   """
 
     t1 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
+    t4 = threading.Thread(target=plot_degree_distribution, args=(allnets, exportpath))
+
 
     t1.start()
     t2.start()
     t3.start()
+    t4.start()
 
     t1.join()
     t2.join()
     t3.join()
+    t4.join()
 
 
 def network_acquisition(density_path):
@@ -162,7 +167,7 @@ def parallel_averagepath(allnets, exportpath):
             print("Nodes:", net_vcount)
             print("Edges:", net_ecount)
 
-            print(f"[Path calculation started]")
+            print(f'Computing path lenght for {nets}')
             print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
             path = net.average_path_length()  # Target is what's running on the new thread
 
@@ -174,6 +179,9 @@ def parallel_averagepath(allnets, exportpath):
             averagepaths[Sim][label[0]] = path
 
             write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
+
+            del net
+            gc.collect()
 
     return averagepaths
 
@@ -209,7 +217,7 @@ def parallel_cluster(allnets, exportpath):
             print("Nodes:", net_vcount)
             print("Edges:", net_ecount)
 
-            print(f"[Cluster calculation started]")
+            print(f'Computing clustering for {nets}')
             print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
             clustering = net.transitivity_undirected()  # Target is what's running on the new thread
             print(f'The clustering coefficient is {clustering}')
@@ -220,6 +228,9 @@ def parallel_cluster(allnets, exportpath):
             averagecluster[Sim][label[0]] = clustering
 
             write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
+
+            del net
+            gc.collect()
 
     return averagecluster
 
@@ -256,7 +267,7 @@ def parallel_density(allnets, exportpath):
             print("Nodes:", net_vcount)
             print("Edges:", net_ecount)
 
-            print(f"[Density calculation started]")
+            print(f'Computing density for {nets}')
             print(f"[Calculating density on thread number ] {threading.current_thread()}")
             density = net.density(loops=False)
 
@@ -268,6 +279,9 @@ def parallel_density(allnets, exportpath):
             alldensities[Sim][label[0]] = density
 
             write_metrics(metric=alldensities, exportpath=exportpath, name=name, label=label)
+
+            del net
+            gc.collect()
 
     return density
 
@@ -288,11 +302,68 @@ def write_metrics(metric, exportpath, name, label):
 |   """
 
     df = DataFrame(data=metric)
-    df.append([{'NetNumber': label[1]}], ignore_index=True)
+    df.assign(NetNumber=label[1])
     file = exportpath + name
     df.to_csv(file)
 
     return statistics
+
+
+# ----------------------------------------------------------------------------------------------------------------- #
+# Data visualisation #
+# ----------------------------------------------------------------------------------------------------------------- #
+
+
+def plot_degree_distribution(allnets, exportpath):
+
+    """ Original function written by Dr Kleber Neves to plot the degree distributions
+
+         Arguments:
+
+            dd (list): Degree Distribution of an igraph object
+
+       Returns:
+
+          Plots of degree distributions
+
+   """
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        for nets in allnets[Sim]:
+
+            net = Graph.Read(nets)
+            dd = net.degree()
+
+            # get title
+            t = network_labelling(netpath=nets)[0]
+
+            # print(f'Plotting {t}')
+
+            fig = plt.figure(figsize=(5, 5), dpi=500)
+
+            sns.set_style("ticks")
+
+            sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                                    "lines.linewidth": 2, "xtick.labelsize": 8,
+                                                    "ytick.labelsize": 8})
+
+            ax = sns.scatterplot(data=np.bincount(dd))
+            ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+
+            # plots data
+
+            # sets labels
+            ax.set_title(str(Sim)+" "+t)
+            ax.set_ylabel("Frequency")
+            ax.set_xlabel("Degree")
+
+            # save to file
+            plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+            plt.close(fig)
+            del net
+            gc.collect()
+
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
@@ -352,3 +423,4 @@ def network_labelling(netpath):
             label = "pruning" + netpath[start:-6]
 
             return label, netpath[start:-6]
+
