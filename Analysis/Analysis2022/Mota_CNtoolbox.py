@@ -359,6 +359,10 @@ def plot_degree_distribution(allnets, exportpath):
             ax.set_xlabel("Degree")
 
             # save to file
+            if not os.path.exists(exportpath + "Degree_Dist"):  # creates export directory
+
+                os.makedirs(exportpath + "Degree_Dist")
+
             plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
             plt.close(fig)
             del net
