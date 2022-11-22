@@ -12,5 +12,8 @@ hundrednets = network_acquisition(paths[1])  # For reference
 
 # Analysing the networks for all simulations in different threads #
 
-analyse_allnets(allnets=fiftynets, exportpath=exportpath50)
+#analyse_allnets(allnets=fiftynets, exportpath=exportpath50)
 analyse_allnets(allnets=hundrednets, exportpath=exportpath100)
+
+#plot_degree_distribution(allnets=fiftynets, exportpath=exportpath50)
+
