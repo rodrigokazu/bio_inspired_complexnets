@@ -11,14 +11,23 @@
 # ----------------------------------------------------------------------------------------------------------------- #
 
 from igraph import *
-from pandas import *
 
 import gc
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+import pandas as pd
 import seaborn as sns
 import threading
 
+# ----------------------------------------------------------------------------------------------------------------- #
+# In order to utilise this toolbox you will need the path of the folder where you want to export the results #
+
+# AND #
+
+# The path for the folder called 50k or 100k which contains the folders Sim 1 to Sim X with your simulations #
+
+# ----------------------------------------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------------------------------------- #
 # Data analysis #
@@ -42,12 +51,11 @@ def analyse_allnets(allnets, exportpath):
 
 |   """
 
-    t1 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
+    t1 = threading.Thread(target=plot_degree_distribution_scatter, args=(allnets, exportpath))
     t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
-    t4 = threading.Thread(target=plot_degree_distribution, args=(allnets, exportpath))
+    t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-
 
     t1.start()
     t2.start()
@@ -162,18 +170,20 @@ def parallel_averagepath(allnets, exportpath):
 
         for nets in allnets[Sim]:
 
-            net = Graph.Read(nets)
+            if os.path.getsize(nets) > 0:
 
-            print(f'Computing path lenght for {nets}')
-            print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
-            path = net.average_path_length()
+                net = Graph.Read(nets)
 
-            print(f'The average path length is {path}')
+                print(f'Computing path lenght for {nets}')
+                print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
+                path = net.average_path_length()
 
-            label = network_labelling(nets)
-            name = "AveragePath.csv"
+                print(f'The average path length is {path}')
 
-            averagepaths[Sim][label[0]] = path
+                label = network_labelling(nets)
+                name = "AveragePath.csv"
+
+                averagepaths[Sim][label[0]] = path
 
             del net
             gc.collect()
@@ -207,20 +217,22 @@ def parallel_cluster(allnets, exportpath):
 
         for nets in allnets[Sim]:
 
-            net = Graph.Read(nets)
+            if os.path.getsize(nets) > 0:
 
-            print(f'Computing clustering for {nets}')
-            print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
-            clustering = net.transitivity_undirected()  # Target is what's running on the new thread
-            print(f'The clustering coefficient is {clustering}')
+                net = Graph.Read(nets)
 
-            label = network_labelling(netpath=nets)
-            name = "AverageClustering.csv"
+                print(f'Computing clustering for {nets}')
+                print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
+                clustering = net.transitivity_undirected()  # Target is what's running on the new thread
+                print(f'The clustering coefficient is {clustering}')
 
-            averagecluster[Sim][label[0]] = clustering
+                label = network_labelling(netpath=nets)
+                name = "AverageClustering.csv"
 
-            del net
-            gc.collect()
+                averagecluster[Sim][label[0]] = clustering
+
+                del net
+                gc.collect()
 
         print(f'Writing to *.csv')
         write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
@@ -252,21 +264,23 @@ def parallel_density(allnets, exportpath):
 
         for nets in allnets[Sim]:
 
-            net = Graph.Read(nets)
+            if os.path.getsize(nets) > 0:
 
-            print(f'Computing density for {nets}')
-            print(f"[Calculating density on thread number ] {threading.current_thread()}")
-            density = net.density(loops=False)
+                net = Graph.Read(nets)
 
-            print(f'The density is {density}')
+                print(f'Computing density for {nets}')
+                print(f"[Calculating density on thread number ] {threading.current_thread()}")
+                density = net.density(loops=False)
 
-            label = network_labelling(netpath=nets)
-            name = "Density.csv"
+                print(f'The density is {density}')
 
-            alldensities[Sim][label[0]] = density
+                label = network_labelling(netpath=nets)
+                name = "Density.csv"
 
-            del net
-            gc.collect()
+                alldensities[Sim][label[0]] = density
+
+                del net
+                gc.collect()
 
         print(f'Writing to *.csv')
         write_metrics(metric=alldensities, exportpath=exportpath, name=name, label=label)
@@ -295,29 +309,31 @@ def parallel_giantcomponent(allnets, exportpath):
 
         for nets in allnets[Sim]:
 
-            net = Graph.Read(nets)
+            if os.path.getsize(nets) > 0:
 
-            print(f'Computing giant component for {nets}')
-            print(f"[Calculating GC on thread number ] {threading.current_thread()}")
+                net = Graph.Read(nets)
 
-            # giant component size
-            _gc = net.as_undirected().decompose(mode=WEAK, maxcompno=1, minelements=2)[0]
-            _gcs = len(_gc.vs)
+                print(f'Computing giant component for {nets}')
+                print(f"[Calculating GC on thread number ] {threading.current_thread()}")
 
-            print(f'The GC is {_gcs}')
+                # giant component size
+                _gc = net.as_undirected().decompose(mode=WEAK, maxcompno=1, minelements=2)[0]
+                _gcs = len(_gc.vs)
 
-            label = network_labelling(netpath=nets)
-            name = "GC.csv"
+                print(f'The GC is {_gcs}')
 
-            gcs[Sim][label[0]] = _gcs
+                label = network_labelling(netpath=nets)
+                name = "GC.csv"
 
-            del net
-            gc.collect()
+                gcs[Sim][label[0]] = _gcs
+
+                del net
+                gc.collect()
 
         print(f'Writing to *.csv')
         write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
 
-    return _gcs
+    return gcs
 
 
 def write_metrics(metric, exportpath, name, label):
@@ -335,10 +351,10 @@ def write_metrics(metric, exportpath, name, label):
 
 |   """
 
-    df = DataFrame(data=metric)
+    df = pd.DataFrame(data=metric)
     #df.assign(NetNumber=label[1])
     file = exportpath + name
-    df.to_csv(file)
+    df.to_csv(file, mode='a')
 
     return statistics
 
@@ -348,7 +364,63 @@ def write_metrics(metric, exportpath, name, label):
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
-def plot_degree_distribution(allnets, exportpath):
+def plot_degree_distribution_line(allnets, exportpath):
+
+    """ Original function written by Dr Kleber Neves to plot the degree distributions
+
+         Arguments:
+
+            dd (list): Degree Distribution of an igraph object
+
+       Returns:
+
+          Plots of degree distributions
+
+   """
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        fig = plt.figure(figsize=(5, 5), dpi=500)
+
+        sns.set_style("ticks")
+
+        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
+
+        for nets in allnets[Sim]:
+
+            net = Graph.Read(nets)
+            dd = net.degree()
+
+            # get title
+            t = network_labelling(netpath=nets)[0]
+
+            print(f'---------------[[PLOTTING {t}]]---------------')
+
+            # plots data
+            ax = sns.lineplot(data=np.bincount(dd))
+            ax.set(yscale="log", xscale="log")
+                   #ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+
+            del net
+            gc.collect()
+
+        # sets labels
+        ax.set_title(str(Sim) + " " + t)
+        ax.set_ylabel("Frequency")
+        ax.set_xlabel("Degree")
+
+        # save to file
+        if not os.path.exists(exportpath + "Degree_Dist"):  # creates export directory
+
+            os.makedirs(exportpath + "Degree_Dist")
+
+        plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+        plt.close(fig)
+
+
+def plot_degree_distribution_scatter(allnets, exportpath):
 
     """ Original function written by Dr Kleber Neves to plot the degree distributions
 
@@ -366,42 +438,43 @@ def plot_degree_distribution(allnets, exportpath):
 
         for nets in allnets[Sim]:
 
-            net = Graph.Read(nets)
-            dd = net.degree()
+            if os.path.getsize(nets) > 0:
 
-            # get title
-            t = network_labelling(netpath=nets)[0]
+                net = Graph.Read(nets)
+                dd = net.degree()
 
-            # print(f'Plotting {t}')
+                # get title
+                t = network_labelling(netpath=nets)[0]
 
-            fig = plt.figure(figsize=(5, 5), dpi=500)
+                print(f'---------------[[PLOTTING {t}]]---------------')
 
-            sns.set_style("ticks")
+                fig = plt.figure(figsize=(5, 5), dpi=500)
 
-            sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
-                                                    "lines.linewidth": 2, "xtick.labelsize": 8,
-                                                    "ytick.labelsize": 8})
+                sns.set_style("ticks")
 
-            ax = sns.scatterplot(data=np.bincount(dd))
-            ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+                sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                                        "lines.linewidth": 2, "xtick.labelsize": 8,
+                                                        "ytick.labelsize": 8})
 
-            # plots data
+                # plots data
+                ax = sns.scatterplot(data=np.bincount(dd))
+                ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
 
-            # sets labels
-            ax.set_title(str(Sim)+" "+t)
-            ax.set_ylabel("Frequency")
-            ax.set_xlabel("Degree")
+                # sets labels
+                ax.set_title(str(Sim)+" "+t)
+                ax.set_ylabel("Frequency")
+                ax.set_xlabel("Degree")
 
-            # save to file
-            if not os.path.exists(exportpath + "Degree_Dist"):  # creates export directory
+                # save to file
+                if not os.path.exists(exportpath + "Degree_Dist"):  # creates export directory
 
-                os.makedirs(exportpath + "Degree_Dist")
+                    os.makedirs(exportpath + "Degree_Dist")
 
-            plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
-            plt.close(fig)
-            del net
-            gc.collect()
+                plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+                plt.close(fig)
 
+                del net
+                gc.collect()
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
