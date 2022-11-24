@@ -10,15 +10,18 @@
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-from igraph import *
 
 import gc
+import igraph
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
+import powerlaw
+import re
 import seaborn as sns
 import threading
+import time
 
 # ----------------------------------------------------------------------------------------------------------------- #
 # In order to utilise this toolbox you will need the path of the folder where you want to export the results #
@@ -26,6 +29,8 @@ import threading
 # AND #
 
 # The path for the folder called 50k or 100k which contains the folders Sim 1 to Sim X with your simulations #
+
+# For Linux replace all "//" with "\"
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
@@ -51,23 +56,105 @@ def analyse_allnets(allnets, exportpath):
 
 |   """
 
+    profiling = {}
+    profiling["Start"] = time.asctime(time.localtime(time.time()))
+
     t1 = threading.Thread(target=plot_degree_distribution_scatter, args=(allnets, exportpath))
     t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
+    t6 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
 
     t1.start()
     t2.start()
     t3.start()
     t4.start()
     t5.start()
+    t6.start()
 
     t1.join()
     t2.join()
     t3.join()
     t4.join()
     t5.join()
+    t6.join()
+
+    profiling["Finish"] = time.asctime(time.localtime(time.time()))
+
+    print("Simulation started at: ", profiling["Start"])
+    print("Simulation finished at: ", profiling["Finish"])
+
+    write_metrics(metric=profiling, name="profiling.csv", exportpath=exportpath, label="None")
+
+
+def fit_net(label, nets, save_graphs=False, exportpath=None):
+
+    """
+    Need to speak to Dr Kleber Neves
+
+            Arguments:
+
+                allnets(list): Path for the networks to be analysed generated with the network_acquisition() function
+                 of this toolbox.
+
+             Returns:
+
+             Exported complex network statistics.
+
+   """
+    
+    stage = re.search(r'(pruning|death)', label[0])
+    it = label[1]
+
+    net = igraph.Graph.Read_Edgelist(nets)
+
+    rem_nodes = len(net.vs.select(_degree_gt=0))  # net.vcount()
+    rem_edges = net.ecount()
+
+    if rem_edges < 100 or rem_nodes < 100:
+        return "NULL"
+
+    x = [t[2] for t in list(net.degree_distribution().bins())]
+
+    #    fit = powerlaw.Fit(x, xmin = 1, xmax = max(x)/10)
+    fitfull = powerlaw.Fit(x, xmin=1, xmax=max(x))
+    fit = fitfull
+
+    if save_graphs != False:
+        fig = plt.figure()
+        fig = fit.plot_pdf(color='b', linewidth=2)
+        #        fig2 = fitfull.plot_pdf(color = 'b', linewidth = 2)
+        #        fit.power_law.plot_pdf(color = 'b', linestyle = '--', ax = fig2)
+        fit.power_law.plot_pdf(color='b', linestyle='--', ax=fig)
+
+        plt.suptitle(stage.capitalize() + ", iteration #" + it, fontsize=18, y=1.02)
+        plt.title("N = " + str(rem_nodes) + "; S = " + str(rem_edges) + "; alpha = " + str(
+            round(fit.power_law.alpha, 3)) + "; D = " + str(round(fit.power_law.D, 3)), fontsize=14)
+        #        plt.axvline(x = max(x)/10, color = '0.6', linestyle = ':')
+
+        if exportpath is None:
+            plt.savefig(os.path.splitext(nets)[0] + '.png', bbox_inches='tight')
+        else:
+            plt.savefig(exportpath + os.path.splitext(os.path.basename(nets))[0] + '.png', bbox_inches='tight')
+
+    #        plt.close(fig)
+
+    rlist = [nets, stage, it, rem_nodes, rem_edges, round(fit.power_law.alpha, 4), round(fit.power_law.D, 4)]
+
+    R, p = fit.distribution_compare('power_law', 'exponential', normalized_ratio=True)
+    rlist.extend([round(R, 4), round(p, 4)])
+
+    R, p = fit.distribution_compare('power_law', 'lognormal', normalized_ratio=True)
+    rlist.extend([round(R, 4), round(p, 4)])
+
+    R, p = fit.distribution_compare('power_law', 'truncated_power_law', normalized_ratio=True)
+    rlist.extend([round(R, 4), round(p, 4)])
+
+    R, p = fit.distribution_compare('truncated_power_law', 'lognormal', normalized_ratio=True)
+    rlist.extend([round(R, 4), round(p, 4)])
+
+    return rlist
 
 
 def network_acquisition(density_path):
@@ -90,7 +177,7 @@ def network_acquisition(density_path):
 
     for path in paths:
 
-        edges_path = path + "\\Edges\\"  # This is the folder structure chosen
+        edges_path = path + "/Edges/"  # This is the folder structure chosen
 
         nets = os.listdir(edges_path)  # Obtains all the files in the folder.
         net_paths = list()
@@ -124,19 +211,21 @@ def network_density_paths(main_path):
               Networks paths for 50k and 100k density simulations
              """
 
-    fifty = main_path + "\\50k\\"
-    hundred = main_path + "\\100k\\"
+    fifty = main_path + "/50k/"
+    hundred = main_path + "/100k/"
 
     fiftysims = os.listdir(fifty)
     hundredsims = os.listdir(hundred)
 
     fiftysims_paths = list()
-    hundredsims_paths = list() # To export a list with the Sim folders "Sim 1", "Sim 2", etc.
+    hundredsims_paths = list()  # To export a list with the Sim folders "Sim 1", "Sim 2", etc.
 
     for sim in fiftysims:
 
-        path = fifty + sim
-        fiftysims_paths.append(path)
+        if sim != "Degree_Dist":
+
+            path = fifty + sim
+            fiftysims_paths.append(path)
 
     for sim in hundredsims:
 
@@ -172,7 +261,7 @@ def parallel_averagepath(allnets, exportpath):
 
             if os.path.getsize(nets) > 0:
 
-                net = Graph.Read(nets)
+                net = igraph.Graph.Read(nets)
 
                 print(f'Computing path lenght for {nets}')
                 print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
@@ -192,6 +281,11 @@ def parallel_averagepath(allnets, exportpath):
         write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
 
     return averagepaths
+
+
+def parallel_centrality(allnets, exportpath):
+
+    return 0
 
 
 def parallel_cluster(allnets, exportpath):
@@ -219,7 +313,7 @@ def parallel_cluster(allnets, exportpath):
 
             if os.path.getsize(nets) > 0:
 
-                net = Graph.Read(nets)
+                net = igraph.Graph.Read(nets)
 
                 print(f'Computing clustering for {nets}')
                 print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
@@ -243,7 +337,7 @@ def parallel_cluster(allnets, exportpath):
 def parallel_density(allnets, exportpath):
 
     """ Computes the density for a list of networks generated with network_acquisition()
-    The density of a graph is simply the ratio of the actual number of its edges and the largest possible number of
+    The density of a igraph.Graph is simply the ratio of the actual number of its edges and the largest possible number of
     edges it could have. The maximum number of edges depends on interpretation: are vertices allowed to be connected to
      themselves? This is controlled by the loops parameter.
 
@@ -266,7 +360,7 @@ def parallel_density(allnets, exportpath):
 
             if os.path.getsize(nets) > 0:
 
-                net = Graph.Read(nets)
+                net = igraph.Graph.Read(nets)
 
                 print(f'Computing density for {nets}')
                 print(f"[Calculating density on thread number ] {threading.current_thread()}")
@@ -311,13 +405,13 @@ def parallel_giantcomponent(allnets, exportpath):
 
             if os.path.getsize(nets) > 0:
 
-                net = Graph.Read(nets)
+                net = igraph.Graph.Read(nets)
 
                 print(f'Computing giant component for {nets}')
                 print(f"[Calculating GC on thread number ] {threading.current_thread()}")
 
                 # giant component size
-                _gc = net.as_undirected().decompose(mode=WEAK, maxcompno=1, minelements=2)[0]
+                _gc = net.as_undirected().decompose(mode=igraph.WEAK, maxcompno=1, minelements=2)[0]
                 _gcs = len(_gc.vs)
 
                 print(f'The GC is {_gcs}')
@@ -334,6 +428,65 @@ def parallel_giantcomponent(allnets, exportpath):
         write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
 
     return gcs
+
+
+def parallel_neun_syn_count(allnets, exportpath):
+
+    """ Original function written by Dr Kleber Neves to compute numbers of neurons and synapses per simulation
+
+        Arguments:
+
+         allnets(list): List of networks generated with network_acquisition()
+
+        Returns:
+
+          CSV of giant components for all networks and simulations
+
+    """
+    labels = {}
+    NeuN_Syn = {}
+    neurons_per_it = {}
+    neurons_over_1_per_it = {}
+    synapses_per_it = {}
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        neurons_per_it[Sim] = list()
+        neurons_over_1_per_it[Sim] = list()
+        synapses_per_it[Sim] = list()
+        labels[Sim] = list()
+        NeuN_Syn[Sim] = list()
+
+        for nets in allnets[Sim]:
+
+            if os.path.getsize(nets) > 0:
+
+                net = igraph.Graph.Read(nets)
+
+                print(f'Evaluating neurons and synapses for {nets}')
+                print(f"[Calculating NeuN_Syn on thread number ] {threading.current_thread()}")
+
+                label = network_labelling(netpath=nets)
+                name = "NeuN_Syn.csv"
+                labels[Sim].append(label[0])
+
+                # store number of neurons, synapses
+                neurons_per_it[Sim].append(len(net.vs.select(_degree_gt=0)))
+                neurons_over_1_per_it[Sim].append((len(net.vs.select(_degree_gt=1))))
+                synapses_per_it[Sim].append((len(net.es)))
+
+                print(f'Network has {len(net.vs.select(_degree_gt=1))} active neurons.')
+
+                del net
+                gc.collect()
+
+        NeuN_Syn[Sim] = {"Iteration": labels[Sim], "NeuN": neurons_per_it[Sim], "Syn": synapses_per_it[Sim],
+                         "Active_NeuN": neurons_over_1_per_it[Sim]}
+
+    print(f'Writing to *.csv')
+    write_metrics(metric=NeuN_Syn, exportpath=exportpath, name=name, label=label)
+
+    return 0
 
 
 def write_metrics(metric, exportpath, name, label):
@@ -356,7 +509,7 @@ def write_metrics(metric, exportpath, name, label):
     file = exportpath + name
     df.to_csv(file, mode='a')
 
-    return statistics
+    return metric
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
@@ -370,7 +523,7 @@ def plot_degree_distribution_line(allnets, exportpath):
 
          Arguments:
 
-            dd (list): Degree Distribution of an igraph object
+            dd (list): Degree Distribution of an iigraph.Graph object
 
        Returns:
 
@@ -390,7 +543,7 @@ def plot_degree_distribution_line(allnets, exportpath):
 
         for nets in allnets[Sim]:
 
-            net = Graph.Read(nets)
+            net = igraph.Graph.Read(nets)
             dd = net.degree()
 
             # get title
@@ -416,7 +569,7 @@ def plot_degree_distribution_line(allnets, exportpath):
 
             os.makedirs(exportpath + "Degree_Dist")
 
-        plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+        plt.savefig(exportpath+"Degree_Dist/"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
         plt.close(fig)
 
 
@@ -426,7 +579,7 @@ def plot_degree_distribution_scatter(allnets, exportpath):
 
          Arguments:
 
-            dd (list): Degree Distribution of an igraph object
+            dd (list): Degree Distribution of an iigraph.Graph object
 
        Returns:
 
@@ -440,7 +593,7 @@ def plot_degree_distribution_scatter(allnets, exportpath):
 
             if os.path.getsize(nets) > 0:
 
-                net = Graph.Read(nets)
+                net = igraph.Graph.Read(nets)
                 dd = net.degree()
 
                 # get title
@@ -470,7 +623,7 @@ def plot_degree_distribution_scatter(allnets, exportpath):
 
                     os.makedirs(exportpath + "Degree_Dist")
 
-                plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+                plt.savefig(exportpath+"Degree_Dist/"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
                 plt.close(fig)
 
                 del net
