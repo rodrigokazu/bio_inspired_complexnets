@@ -54,32 +54,31 @@ def analyse_allnets(allnets, exportpath):
 
           Exported complex network statistics.
 
-|   """
-
-    profiling = {}
-    profiling["Start"] = time.asctime(time.localtime(time.time()))
+   """
 
     t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
     t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
+    t6 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
 
     t1.start()
     t2.start()
     t3.start()
     t4.start()
     t5.start()
+    t6.start()
 
     t1.join()
     t2.join()
     t3.join()
     t4.join()
     t5.join()
+    t6.join()
 
 
-
-def fit_net(label, nets, save_graphs=False, exportpath=None):
+def fit_net(label, nets, Sim, exportpath, save_graphs=False):
 
     """
     Need to speak to Dr Kleber Neves
@@ -94,8 +93,8 @@ def fit_net(label, nets, save_graphs=False, exportpath=None):
              Exported complex network statistics.
 
    """
-    
-    stage = re.search(r'(pruning|death)', label[0])
+
+    stage = re.search(r'(pruning|death)', label[0])[1]
     it = label[1]
 
     net = igraph.Graph.Read_Edgelist(nets)
@@ -113,6 +112,7 @@ def fit_net(label, nets, save_graphs=False, exportpath=None):
     fit = fitfull
 
     if save_graphs != False:
+
         fig = plt.figure()
         fig = fit.plot_pdf(color='b', linewidth=2)
         #        fig2 = fitfull.plot_pdf(color = 'b', linewidth = 2)
@@ -124,14 +124,10 @@ def fit_net(label, nets, save_graphs=False, exportpath=None):
             round(fit.power_law.alpha, 3)) + "; D = " + str(round(fit.power_law.D, 3)), fontsize=14)
         #        plt.axvline(x = max(x)/10, color = '0.6', linestyle = ':')
 
-        if exportpath is None:
-            plt.savefig(os.path.splitext(nets)[0] + '.png', bbox_inches='tight')
-        else:
-            plt.savefig(exportpath + os.path.splitext(os.path.basename(nets))[0] + '.png', bbox_inches='tight')
+        plt.savefig(exportpath+"Degree_Dist/"+"FIT"+str(Sim)+"_"+str(stage.capitalize()) + ", iteration #" + str(it)+'.png', bbox_inches='tight')
+        #plt.close(fig)
 
-    #        plt.close(fig)
-
-    rlist = [nets, stage, it, rem_nodes, rem_edges, round(fit.power_law.alpha, 4), round(fit.power_law.D, 4)]
+    rlist = [round(fit.power_law.alpha, 4), round(fit.power_law.D, 4)]
 
     R, p = fit.distribution_compare('power_law', 'exponential', normalized_ratio=True)
     rlist.extend([round(R, 4), round(p, 4)])
@@ -373,6 +369,53 @@ def parallel_density(allnets, exportpath):
     return density
 
 
+def parallel_fitnet(allnets, exportpath):
+
+    """ Fits the power law for a list of networks generated with network_acquisition()
+
+      Arguments:
+
+          allnets(list): List of networks generated with network_acquisition()
+          exportpath(str): Path to export the dataset as a csv
+
+           Returns:
+
+            Fits
+
+        """
+
+    fits = dict()
+    netnumbers = list()
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        fits[Sim] = dict()
+
+        for nets in allnets[Sim]:
+
+            if os.path.getsize(nets) > 0:
+
+                net = igraph.Graph.Read(nets)
+                label = network_labelling(nets)
+
+                print(f'Computing fits for {nets}')
+                print(f"[Calculating fits on thread number ] {threading.current_thread()}")
+
+                rlist = fit_net(label=label, nets=nets, exportpath=exportpath, Sim=Sim, save_graphs=True)
+
+                name = "Fits.csv"
+
+                fits[Sim][label[0]] = rlist
+
+            del net
+            gc.collect()
+
+        print(f'Writing to *.csv')
+        write_metrics(metric=fits, exportpath=exportpath, name=name, label=label)
+
+    return 0
+
+
 def parallel_giantcomponent(allnets, exportpath):
 
     """ Computes the giant compnent for a list of networks generated with network_acquisition()
@@ -458,8 +501,7 @@ def parallel_neun_syn_count(allnets, exportpath):
                 print(f"[Calculating NeuN_Syn on thread number ] {threading.current_thread()}")
 
                 label = network_labelling(netpath=nets)
-                name = "NeuN_Syn.csv"
-                labels[Sim].append(label[0])
+                name = "NeuN_Syn_Meta.csv"
 
                 # store number of neurons, synapses
                 neurons_per_it[Sim].append(len(net.vs.select(_degree_gt=0)))
@@ -471,7 +513,10 @@ def parallel_neun_syn_count(allnets, exportpath):
                 del net
                 gc.collect()
 
-        NeuN_Syn[Sim] = {"Iteration": labels[Sim], "NeuN": neurons_per_it[Sim], "Syn": synapses_per_it[Sim],
+        stage = re.search(r'(pruning|death)', label[0])[1]
+        it = label[1]
+
+        NeuN_Syn[Sim] = {"Stage": stage, "Iteration": it, "NeuN": neurons_per_it[Sim], "Syn": synapses_per_it[Sim],
                          "Active_NeuN": neurons_over_1_per_it[Sim]}
 
     print(f'Writing to *.csv')
