@@ -59,33 +59,24 @@ def analyse_allnets(allnets, exportpath):
     profiling = {}
     profiling["Start"] = time.asctime(time.localtime(time.time()))
 
-    t1 = threading.Thread(target=plot_degree_distribution_scatter, args=(allnets, exportpath))
+    t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
     t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-    t6 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
 
     t1.start()
     t2.start()
     t3.start()
     t4.start()
     t5.start()
-    t6.start()
 
     t1.join()
     t2.join()
     t3.join()
     t4.join()
     t5.join()
-    t6.join()
 
-    profiling["Finish"] = time.asctime(time.localtime(time.time()))
-
-    print("Simulation started at: ", profiling["Start"])
-    print("Simulation finished at: ", profiling["Finish"])
-
-    write_metrics(metric=profiling, name="profiling.csv", exportpath=exportpath, label="None")
 
 
 def fit_net(label, nets, save_graphs=False, exportpath=None):
