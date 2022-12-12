@@ -22,6 +22,11 @@ import re
 import seaborn as sns
 import threading
 import time
+import pylab
+from matplotlib import rc
+from matplotlib.font_manager import FontProperties
+from mpl_toolkits import * 
+
 
 # ----------------------------------------------------------------------------------------------------------------- #
 # In order to utilise this toolbox you will need the path of the folder where you want to export the results #
@@ -238,11 +243,14 @@ def parallel_averagepath(allnets, exportpath):
         """
 
     averagepaths = dict()
-    netnumbers = list()
 
     for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
         averagepaths[Sim] = dict()
+        averagepaths[Sim+" iterations"] = dict()
+
+        print(f'Computing path lenght for {Sim}')
+        print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
 
         for nets in allnets[Sim]:
 
@@ -250,22 +258,19 @@ def parallel_averagepath(allnets, exportpath):
 
                 net = igraph.Graph.Read(nets)
 
-                print(f'Computing path lenght for {nets}')
-                print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
                 path = net.average_path_length()
-
-                print(f'The average path length is {path}')
 
                 label = network_labelling(nets)
                 name = "AveragePath.csv"
 
                 averagepaths[Sim][label[0]] = path
+                averagepaths[Sim + " iterations"][label[0]] = label[1]
 
-            del net
-            gc.collect()
+                del net
+                gc.collect()
 
-        print(f'Writing to *.csv')
         write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
+        print(f'Done for {Sim}')
 
     return averagepaths
 
@@ -407,8 +412,8 @@ def parallel_fitnet(allnets, exportpath):
 
                 fits[Sim][label[0]] = rlist
 
-            del net
-            gc.collect()
+                del net
+                gc.collect()
 
         print(f'Writing to *.csv')
         write_metrics(metric=fits, exportpath=exportpath, name=name, label=label)
@@ -490,6 +495,8 @@ def parallel_neun_syn_count(allnets, exportpath):
         synapses_per_it[Sim] = list()
         labels[Sim] = list()
         NeuN_Syn[Sim] = list()
+        it = list()
+        stage = list()
 
         for nets in allnets[Sim]:
 
@@ -507,16 +514,16 @@ def parallel_neun_syn_count(allnets, exportpath):
                 neurons_per_it[Sim].append(len(net.vs.select(_degree_gt=0)))
                 neurons_over_1_per_it[Sim].append((len(net.vs.select(_degree_gt=1))))
                 synapses_per_it[Sim].append((len(net.es)))
+                stage.append(re.search(r'(pruning|death)', label[0])[1])
+                it.append(label[1])
+                labels[Sim].append(label[0])
 
                 print(f'Network has {len(net.vs.select(_degree_gt=1))} active neurons.')
 
                 del net
                 gc.collect()
 
-        stage = re.search(r'(pruning|death)', label[0])[1]
-        it = label[1]
-
-        NeuN_Syn[Sim] = {"Stage": stage, "Iteration": it, "NeuN": neurons_per_it[Sim], "Syn": synapses_per_it[Sim],
+        NeuN_Syn[Sim] = {"Labels": labels, "Stage": stage, "Iteration": it, "NeuN": neurons_per_it[Sim], "Syn": synapses_per_it[Sim],
                          "Active_NeuN": neurons_over_1_per_it[Sim]}
 
     print(f'Writing to *.csv')
@@ -541,7 +548,6 @@ def write_metrics(metric, exportpath, name, label):
 |   """
 
     df = pd.DataFrame(data=metric)
-    #df.assign(NetNumber=label[1])
     file = exportpath + name
     df.to_csv(file, mode='a')
 
@@ -665,6 +671,50 @@ def plot_degree_distribution_scatter(allnets, exportpath):
                 del net
                 gc.collect()
 
+
+def plot_average_path(exportpath, pathdata):
+
+    """ Plots the path lenghts for a given network
+
+             Arguments:
+
+                pathdata (str): Path for a *.csv spreadsheet
+
+           Returns:
+
+              Plots of path lengths
+
+       """
+
+    path = pd.read_csv(pathdata)
+
+    Sim1 = path['Sim 1']
+    Iteration = path['Iteration']
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)
+
+    sns.set_style("ticks")
+
+    sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                         "lines.linewidth": 2, "xtick.labelsize": 8,
+                                         "ytick.labelsize": 8})
+
+    # plots data
+    ax = sns.scatterplot(x=Iteration, y=Sim1)
+
+    #ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+
+    # sets labels
+    ax.set_title("Sim 1")
+    ax.set_ylabel("Path length")
+    ax.set_xlabel("Iteration")
+
+    # save to file
+
+    plt.savefig(exportpath + 'Sim1.png', bbox_inches='tight')
+    plt.close(fig)
+
+    return 0
 
 # ----------------------------------------------------------------------------------------------------------------- #
 # Support functions #
