@@ -21,11 +21,6 @@ import powerlaw
 import re
 import seaborn as sns
 import threading
-import time
-import pylab
-from matplotlib import rc
-from matplotlib.font_manager import FontProperties
-from mpl_toolkits import * 
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
@@ -61,25 +56,25 @@ def analyse_allnets(allnets, exportpath):
 
    """
 
-    t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
-    t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
-    t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
-    t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
-    t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
+    #t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
+    #t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
+    #t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
+    #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
+    #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
     t6 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
 
-    t1.start()
-    t2.start()
-    t3.start()
-    t4.start()
-    t5.start()
+    #t1.start()
+    #t2.start()
+    #t3.start()
+    #t4.start()
+    #t5.start()
     t6.start()
 
-    t1.join()
-    t2.join()
-    t3.join()
-    t4.join()
-    t5.join()
+    #t1.join()
+    #t2.join()
+    #t3.join()
+    #t4.join()
+    #t5.join()
     t6.join()
 
 
@@ -146,7 +141,7 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
     R, p = fit.distribution_compare('truncated_power_law', 'lognormal', normalized_ratio=True)
     rlist.extend([round(R, 4), round(p, 4)])
 
-    return rlist
+    return stage, int(it), fit.power_law.alpha, fit.power_law.D,
 
 
 def network_acquisition(density_path):
@@ -395,6 +390,7 @@ def parallel_fitnet(allnets, exportpath):
     for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
         fits[Sim] = dict()
+        alpha_D_list = list()
 
         for nets in allnets[Sim]:
 
@@ -406,14 +402,17 @@ def parallel_fitnet(allnets, exportpath):
                 print(f'Computing fits for {nets}')
                 print(f"[Calculating fits on thread number ] {threading.current_thread()}")
 
-                rlist = fit_net(label=label, nets=nets, exportpath=exportpath, Sim=Sim, save_graphs=True)
+                alpha_D = fit_net(label=label, nets=nets, exportpath=exportpath, Sim=Sim, save_graphs=True)
 
                 name = "Fits.csv"
 
-                fits[Sim][label[0]] = rlist
+                fits[Sim][label[0]] = alpha_D
+                alpha_D_list.append(alpha_D)
 
                 del net
                 gc.collect()
+
+        plot_alpha_D(allnets=allnets, exportpath=exportpath, alpha_D=alpha_D_list)
 
         print(f'Writing to *.csv')
         write_metrics(metric=fits, exportpath=exportpath, name=name, label=label)
@@ -557,6 +556,126 @@ def write_metrics(metric, exportpath, name, label):
 # ----------------------------------------------------------------------------------------------------------------- #
 # Data visualisation #
 # ----------------------------------------------------------------------------------------------------------------- #
+
+
+def plot_alpha_D(allnets, exportpath, alpha_D):
+
+    """ Original function written by Dr Kleber Neves to plot the degree distributions, customised for Alpha and D
+    Alpha and D can be obtained using fit_net()
+
+         Arguments:
+
+            dd (list): Degree Distribution of an iigraph.Graph object
+
+       Returns:
+
+          Plots of degree distributions
+
+   """
+
+    #for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+    overall_it = list()
+    current_it = 0
+
+    overall_alpha = list()
+    overall_D = list()
+    it_death = list()
+    it_pruning = list()
+    alpha_death = list()
+    alpha_pruning = list()
+    D_death = list()
+    D_pruning = list()
+
+    for label in alpha_D:
+
+        if label[0] == "death":
+
+            it_death.append(label[1])
+            alpha_death.append(label[2])
+            D_death.append(label[3])
+
+            overall_it.append(current_it)
+            overall_alpha.append(label[2])
+            overall_D.append(label[3])
+
+        else:
+
+            it_pruning.append(label[1])
+            alpha_pruning.append(label[2])
+            D_pruning.append(label[3])
+
+            overall_it.append(current_it)
+            overall_alpha.append(label[2])
+            overall_D.append(label[3])
+
+        current_it = current_it + 1
+
+    # Sorting the values of alpha to account for inconsistencies in the order of iterations
+    sorted_alpha_d = [x for _, x in sorted(zip(it_death, alpha_death))]
+    sorted_alpha_p = [x for _, x in sorted(zip(it_pruning, alpha_pruning))]
+
+    sorted_alpha = sorted_alpha_d + sorted_alpha_p
+
+    # Sorting the values of D to account for inconsistencies in the order of iterations
+    sorted_D_d = [x for _, x in sorted(zip(it_death, D_death))]
+    sorted_D_p = [x for _, x in sorted(zip(it_pruning, D_pruning))]
+
+    sorted_D = sorted_D_d + sorted_D_p
+
+    # concatenating death and pruning iterations
+    it_pruning = np.array(it_pruning)
+    it_pruning = it_pruning + 500
+    it_pruning = list(it_pruning)
+
+    overall_it = it_death + it_pruning
+    overall_it = sorted(overall_it)
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)
+
+    sns.set_style("ticks")
+
+    sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                         "lines.linewidth": 2, "xtick.labelsize": 8,
+                                         "ytick.labelsize": 8})
+    """
+        #for nets in allnets[Sim]:
+            
+    net = igraph.Graph.Read(nets)
+    dd = net.degree()
+
+    # get title
+    t = network_labelling(netpath=nets)[0]
+
+    print(f'---------------[[PLOTTING {t}]]---------------')
+    """
+
+    # plots data
+    ax = sns.lineplot(x=overall_it, y=sorted_alpha, markers=True, linewidth=2, color='r', label="Alpha")
+    ax = sns.lineplot(x=overall_it, y=sorted_D, markers=True, linewidth=2, color='b', label="Distance")
+    #ax = sns.lineplot(x=it_pruning.sort(), y=alpha_pruning)
+    ax.set(ylim=[0, 2])
+    plt.legend()
+
+    #del net
+    gc.collect()
+
+    # sets labels
+    ax.set_title("Evolution of Alpha and D")
+    #ax.set_title(str(Sim) + " " + t)
+    ax.set_ylabel("Measure")
+    ax.set_xlabel("Iteration")
+
+    # save to file
+    if not os.path.exists(exportpath + "Alpha_D"):  # creates export directory
+
+        os.makedirs(exportpath + "Alpha_D")
+
+    plt.savefig(exportpath + "Alpha_D/" + 'Sim_1.png', bbox_inches='tight')
+    #plt.savefig(exportpath + "Alpha_D/" + str(Sim) + "_" + t + '.png', bbox_inches='tight')
+    plt.close(fig)
+
+    return 0
 
 
 def plot_degree_distribution_line(allnets, exportpath):
