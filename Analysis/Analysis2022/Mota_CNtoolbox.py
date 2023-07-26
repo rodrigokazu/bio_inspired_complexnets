@@ -125,7 +125,7 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
         #        plt.axvline(x = max(x)/10, color = '0.6', linestyle = ':')
 
         plt.savefig(exportpath+"Degree_Dist/"+"FIT"+str(Sim)+"_"+str(stage.capitalize()) + ", iteration #" + str(it)+'.png', bbox_inches='tight')
-        #plt.close(fig)
+        plt.close(fig)
 
     rlist = [round(fit.power_law.alpha, 4), round(fit.power_law.D, 4)]
 
@@ -402,7 +402,7 @@ def parallel_fitnet(allnets, exportpath):
                 print(f'Computing fits for {nets}')
                 print(f"[Calculating fits on thread number ] {threading.current_thread()}")
 
-                alpha_D = fit_net(label=label, nets=nets, exportpath=exportpath, Sim=Sim, save_graphs=True)
+                alpha_D = fit_net(label=label, nets=nets, exportpath=exportpath, Sim=Sim, save_graphs=False)
 
                 name = "Fits.csv"
 
@@ -412,7 +412,7 @@ def parallel_fitnet(allnets, exportpath):
                 del net
                 gc.collect()
 
-        plot_alpha_D(allnets=allnets, exportpath=exportpath, alpha_D=alpha_D_list)
+        plot_alpha_D(alpha_D=alpha_D_list, Sim=Sim, exportpath=exportpath)
 
         print(f'Writing to *.csv')
         write_metrics(metric=fits, exportpath=exportpath, name=name, label=label)
@@ -558,7 +558,7 @@ def write_metrics(metric, exportpath, name, label):
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
-def plot_alpha_D(allnets, exportpath, alpha_D):
+def plot_alpha_D(alpha_D, exportpath, Sim):
 
     """ Original function written by Dr Kleber Neves to plot the degree distributions, customised for Alpha and D
     Alpha and D can be obtained using fit_net()
@@ -572,8 +572,6 @@ def plot_alpha_D(allnets, exportpath, alpha_D):
           Plots of degree distributions
 
    """
-
-    #for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
     overall_it = list()
     current_it = 0
@@ -611,8 +609,78 @@ def plot_alpha_D(allnets, exportpath, alpha_D):
 
         current_it = current_it + 1
 
-    # Sorting the values of alpha to account for inconsistencies in the order of iterations
-    sorted_alpha_d = [x for _, x in sorted(zip(it_death, alpha_death))]
+    delete_list_a_death = []
+    delete_list_it_death = []
+    delete_list_a_pruning = []
+    delete_list_it_pruning = []
+
+    for index in range(0, len(alpha_death)):
+
+        if alpha_death[index] == "L":
+
+            delete_list_a_death.append(index)
+
+        if alpha_death[index] == "U":
+
+            delete_list_a_death.append(index)
+
+    for index in range(0, len(it_death)):
+
+        if it_death[index] == "L":
+
+            delete_list_it_death.append(index)
+
+        if alpha_death[index] == "U":
+
+            delete_list_it_death.append(index)
+
+    for index in range(0, len(alpha_pruning)):
+
+        if alpha_pruning[index] == "L":
+
+            delete_list_a_pruning.append(index)
+
+        if alpha_pruning[index] == "U":
+
+            delete_list_a_pruning.append(index)
+
+    for index in range(0, len(it_pruning)):
+
+        if it_pruning[index] == "L":
+
+            delete_list_it_pruning.append(index)
+
+        if it_pruning[index] == "U":
+
+            delete_list_it_pruning.append(index)
+
+    # Dealing with "L" and "U" outputs
+
+    for index in sorted(delete_list_a_death, reverse=True):
+
+        del alpha_death[index]
+
+    for index in sorted(delete_list_it_death, reverse=True):
+
+        del it_death[index]
+
+    for index in sorted(delete_list_a_pruning, reverse=True):
+
+        del alpha_pruning[index]
+
+    for index in sorted(delete_list_it_pruning, reverse=True):
+
+        del it_pruning[index]
+
+    if len(it_death) > 0:
+
+        # Sorting the values of alpha to account for inconsistencies in the order of iterations
+        sorted_alpha_d = [x for _, x in sorted(zip(it_death, alpha_death))]
+
+    else:
+
+        sorted_alpha_d = []
+
     sorted_alpha_p = [x for _, x in sorted(zip(it_pruning, alpha_pruning))]
 
     sorted_alpha = sorted_alpha_d + sorted_alpha_p
@@ -623,10 +691,33 @@ def plot_alpha_D(allnets, exportpath, alpha_D):
 
     sorted_D = sorted_D_d + sorted_D_p
 
-    # concatenating death and pruning iterations
-    it_pruning = np.array(it_pruning)
-    it_pruning = it_pruning + 500
-    it_pruning = list(it_pruning)
+    # Dealing with the L and U outputs again
+
+    delete_from_sorted = []
+
+    for index in range(0, len(sorted_D)):
+
+        if sorted_D[index] == "L":
+
+            delete_from_sorted.append(index)
+
+        if sorted_D[index] == "U":
+
+            delete_from_sorted.append(index)
+
+        # Dealing with "L" and "U" outputs
+
+    for index in sorted(delete_from_sorted, reverse=True):
+
+        del sorted_D[index]
+        del it_pruning[index] # Plotted lists should be of the same size
+
+    if len(it_death) > 0:
+
+        # concatenating death and pruning iterations
+        it_pruning = np.array(it_pruning)
+        it_pruning = it_pruning + 500
+        it_pruning = list(it_pruning)
 
     overall_it = it_death + it_pruning
     overall_it = sorted(overall_it)
@@ -638,31 +729,18 @@ def plot_alpha_D(allnets, exportpath, alpha_D):
     sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
-    """
-        #for nets in allnets[Sim]:
-            
-    net = igraph.Graph.Read(nets)
-    dd = net.degree()
-
-    # get title
-    t = network_labelling(netpath=nets)[0]
-
-    print(f'---------------[[PLOTTING {t}]]---------------')
-    """
 
     # plots data
     ax = sns.lineplot(x=overall_it, y=sorted_alpha, markers=True, linewidth=2, color='r', label="Alpha")
     ax = sns.lineplot(x=overall_it, y=sorted_D, markers=True, linewidth=2, color='b', label="Distance")
-    #ax = sns.lineplot(x=it_pruning.sort(), y=alpha_pruning)
     ax.set(ylim=[0, 2])
     plt.legend()
 
-    #del net
     gc.collect()
 
     # sets labels
     ax.set_title("Evolution of Alpha and D")
-    #ax.set_title(str(Sim) + " " + t)
+    ax.set_title(str(Sim))
     ax.set_ylabel("Measure")
     ax.set_xlabel("Iteration")
 
@@ -671,8 +749,7 @@ def plot_alpha_D(allnets, exportpath, alpha_D):
 
         os.makedirs(exportpath + "Alpha_D")
 
-    plt.savefig(exportpath + "Alpha_D/" + 'Sim_1.png', bbox_inches='tight')
-    #plt.savefig(exportpath + "Alpha_D/" + str(Sim) + "_" + t + '.png', bbox_inches='tight')
+    plt.savefig(exportpath + "Alpha_D/" + str(Sim) + '.png', bbox_inches='tight')
     plt.close(fig)
 
     return 0
