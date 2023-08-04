@@ -107,6 +107,9 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
 
     x = [t[2] for t in list(net.degree_distribution().bins())]
 
+    del net
+    gc.collect()
+
     #    fit = powerlaw.Fit(x, xmin = 1, xmax = max(x)/10)
     fitfull = powerlaw.Fit(x, xmin=1, xmax=max(x))
     fit = fitfull
@@ -124,7 +127,7 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
             round(fit.power_law.alpha, 3)) + "; D = " + str(round(fit.power_law.D, 3)), fontsize=14)
         #        plt.axvline(x = max(x)/10, color = '0.6', linestyle = ':')
 
-        plt.savefig(exportpath+"Degree_Dist/"+"FIT"+str(Sim)+"_"+str(stage.capitalize()) + ", iteration #" + str(it)+'.png', bbox_inches='tight')
+        plt.savefig(exportpath+"Degree_Dist\\"+"FIT"+str(Sim)+"_"+str(stage.capitalize()) + ", iteration #" + str(it)+'.png', bbox_inches='tight')
         plt.close(fig)
 
     rlist = [round(fit.power_law.alpha, 4), round(fit.power_law.D, 4)]
@@ -164,7 +167,7 @@ def network_acquisition(density_path):
 
     for path in paths:
 
-        edges_path = path + "/Edges/"  # This is the folder structure chosen
+        edges_path = path + "\\Edges\\"  # This is the folder structure chosen
 
         nets = os.listdir(edges_path)  # Obtains all the files in the folder.
         net_paths = list()
@@ -198,8 +201,8 @@ def network_density_paths(main_path):
               Networks paths for 50k and 100k density simulations
              """
 
-    fifty = main_path + "/50k/"
-    hundred = main_path + "/100k/"
+    fifty = main_path + "\\50k\\"
+    hundred = main_path + "\\100k\\"
 
     fiftysims = os.listdir(fifty)
     hundredsims = os.listdir(hundred)
@@ -385,7 +388,6 @@ def parallel_fitnet(allnets, exportpath):
         """
 
     fits = dict()
-    netnumbers = list()
 
     for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
@@ -396,11 +398,10 @@ def parallel_fitnet(allnets, exportpath):
 
             if os.path.getsize(nets) > 0:
 
-                net = igraph.Graph.Read(nets)
                 label = network_labelling(nets)
 
                 print(f'Computing fits for {nets}')
-                print(f"[Calculating fits on thread number ] {threading.current_thread()}")
+                print(f"[Calculating fits on thread number {threading.current_thread()}")
 
                 alpha_D = fit_net(label=label, nets=nets, exportpath=exportpath, Sim=Sim, save_graphs=False)
 
@@ -409,7 +410,6 @@ def parallel_fitnet(allnets, exportpath):
                 fits[Sim][label[0]] = alpha_D
                 alpha_D_list.append(alpha_D)
 
-                del net
                 gc.collect()
 
         plot_alpha_D(alpha_D=alpha_D_list, Sim=Sim, exportpath=exportpath)
@@ -707,36 +707,38 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
         # Dealing with "L" and "U" outputs
 
+    it_pruning_copy = it_pruning
+
     for index in sorted(delete_from_sorted, reverse=True):
 
         del sorted_D[index]
+        del sorted_alpha[index] # provisional 26.07.2023
         del it_pruning[index] # Plotted lists should be of the same size
 
     if len(it_death) > 0:
 
         # concatenating death and pruning iterations
-        it_pruning = np.array(it_pruning)
+        it_pruning = np.array(it_pruning_copy)
         it_pruning = it_pruning + 500
         it_pruning = list(it_pruning)
 
     overall_it = it_death + it_pruning
     overall_it = sorted(overall_it)
 
+    # plots data
+
     fig = plt.figure(figsize=(5, 5), dpi=500)
 
     sns.set_style("ticks")
-
     sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
 
-    # plots data
+
     ax = sns.lineplot(x=overall_it, y=sorted_alpha, markers=True, linewidth=2, color='r', label="Alpha")
     ax = sns.lineplot(x=overall_it, y=sorted_D, markers=True, linewidth=2, color='b', label="Distance")
     ax.set(ylim=[0, 2])
     plt.legend()
-
-    gc.collect()
 
     # sets labels
     ax.set_title("Evolution of Alpha and D")
@@ -749,8 +751,11 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
         os.makedirs(exportpath + "Alpha_D")
 
-    plt.savefig(exportpath + "Alpha_D/" + str(Sim) + '.png', bbox_inches='tight')
+    plt.savefig(exportpath + "Alpha_D\\" + str(Sim) + '.png', bbox_inches='tight')
+
     plt.close(fig)
+    del alpha_D
+    gc.collect()
 
     return 0
 
@@ -807,7 +812,7 @@ def plot_degree_distribution_line(allnets, exportpath):
 
             os.makedirs(exportpath + "Degree_Dist")
 
-        plt.savefig(exportpath+"Degree_Dist/"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+        plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
         plt.close(fig)
 
 
@@ -861,7 +866,7 @@ def plot_degree_distribution_scatter(allnets, exportpath):
 
                     os.makedirs(exportpath + "Degree_Dist")
 
-                plt.savefig(exportpath+"Degree_Dist/"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+                plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
                 plt.close(fig)
 
                 del net
