@@ -81,12 +81,14 @@ def analyse_allnets(allnets, exportpath):
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
 
     """
-    Need to speak to Dr Kleber Neves
+    Function that runs the Kolmogorov-Smirnov test
 
             Arguments:
 
-                allnets(list): Path for the networks to be analysed generated with the network_acquisition() function
-                 of this toolbox.
+                nets(str): Path of the network to be analysed
+                Sim (str): Simulation number
+                exportpath (str): Path where the plots and analysed data will be exported
+                label(str): Output of the network_labelling() function
 
              Returns:
 
