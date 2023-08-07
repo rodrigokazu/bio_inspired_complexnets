@@ -61,7 +61,7 @@ def analyse_allnets(allnets, exportpath):
     #t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-    t6 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
+    t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
 
     #t1.start()
     #t2.start()
@@ -129,7 +129,7 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
             round(fit.power_law.alpha, 3)) + "; D = " + str(round(fit.power_law.D, 3)), fontsize=14)
         #        plt.axvline(x = max(x)/10, color = '0.6', linestyle = ':')
 
-        plt.savefig(exportpath+"Degree_Dist\\"+"FIT"+str(Sim)+"_"+str(stage.capitalize()) + ", iteration #" + str(it)+'.png', bbox_inches='tight')
+        plt.savefig(exportpath+"Degree_Dist/"+"FIT"+str(Sim)+"_"+str(stage.capitalize()) + ", iteration #" + str(it)+'.png', bbox_inches='tight')
         plt.close(fig)
 
     rlist = [round(fit.power_law.alpha, 4), round(fit.power_law.D, 4)]
@@ -146,7 +146,7 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
     R, p = fit.distribution_compare('truncated_power_law', 'lognormal', normalized_ratio=True)
     rlist.extend([round(R, 4), round(p, 4)])
 
-    return stage, int(it), fit.power_law.alpha, fit.power_law.D,
+    return stage, int(it), fit.power_law.alpha, fit.power_law.D
 
 
 def network_acquisition(density_path):
@@ -169,7 +169,7 @@ def network_acquisition(density_path):
 
     for path in paths:
 
-        edges_path = path + "\\Edges\\"  # This is the folder structure chosen
+        edges_path = path + "/Edges/"  # This is the folder structure chosen
 
         nets = os.listdir(edges_path)  # Obtains all the files in the folder.
         net_paths = list()
@@ -203,8 +203,8 @@ def network_density_paths(main_path):
               Networks paths for 50k and 100k density simulations
              """
 
-    fifty = main_path + "\\50k\\"
-    hundred = main_path + "\\100k\\"
+    fifty = main_path + "/50k/"
+    hundred = main_path + "/100k/"
 
     fiftysims = os.listdir(fifty)
     hundredsims = os.listdir(hundred)
@@ -567,13 +567,16 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
          Arguments:
 
-            dd (list): Degree Distribution of an iigraph.Graph object
+            alpha_D (list): List of alphas and Ds
+            exportpath(str): Path to export the dataset as a csv
 
        Returns:
 
-          Plots of degree distributions
+          Plots of alphas vs Ds
 
    """
+
+    # Creating relevant lists #
 
     overall_it = list()
     current_it = 0
@@ -586,6 +589,8 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
     alpha_pruning = list()
     D_death = list()
     D_pruning = list()
+
+    # Populate the lists with the content from alpha_D #
 
     for label in alpha_D:
 
@@ -610,6 +615,9 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
             overall_D.append(label[3])
 
         current_it = current_it + 1
+
+
+    # Dealing with "L" and "U" outputs in a very inefficient way #
 
     delete_list_a_death = []
     delete_list_it_death = []
@@ -656,8 +664,6 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
             delete_list_it_pruning.append(index)
 
-    # Dealing with "L" and "U" outputs
-
     for index in sorted(delete_list_a_death, reverse=True):
 
         del alpha_death[index]
@@ -697,6 +703,8 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
     delete_from_sorted = []
 
+    it_pruning_copy = it_pruning
+
     for index in range(0, len(sorted_D)):
 
         if sorted_D[index] == "L":
@@ -709,14 +717,6 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
         # Dealing with "L" and "U" outputs
 
-    it_pruning_copy = it_pruning
-
-    for index in sorted(delete_from_sorted, reverse=True):
-
-        del sorted_D[index]
-        del sorted_alpha[index] # provisional 26.07.2023
-        del it_pruning[index] # Plotted lists should be of the same size
-
     if len(it_death) > 0:
 
         # concatenating death and pruning iterations
@@ -727,6 +727,13 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
     overall_it = it_death + it_pruning
     overall_it = sorted(overall_it)
 
+    for index in sorted(delete_from_sorted, reverse=True):  # It doesn't seem to be getting in this loop half of the time
+
+        del sorted_D[index]
+        del sorted_alpha[index]
+        del overall_it[index]
+
+
     # plots data
 
     fig = plt.figure(figsize=(5, 5), dpi=500)
@@ -735,7 +742,6 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
     sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
-
 
     ax = sns.lineplot(x=overall_it, y=sorted_alpha, markers=True, linewidth=2, color='r', label="Alpha")
     ax = sns.lineplot(x=overall_it, y=sorted_D, markers=True, linewidth=2, color='b', label="Distance")
@@ -753,7 +759,7 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
         os.makedirs(exportpath + "Alpha_D")
 
-    plt.savefig(exportpath + "Alpha_D\\" + str(Sim) + '.png', bbox_inches='tight')
+    plt.savefig(exportpath + "Alpha_D/" + str(Sim) + '.png', bbox_inches='tight')
 
     plt.close(fig)
     del alpha_D
@@ -762,13 +768,60 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
     return 0
 
 
+def plot_average_path(exportpath, pathdata):
+
+    """ Plots the path lenghts for a given network
+
+             Arguments:
+
+                exportpath(str): Path to export the dataset as a csv
+                pathdata (str): Path for a *.csv spreadsheet
+
+           Returns:
+
+              Plots of path lengths
+
+       """
+
+    path = pd.read_csv(pathdata)
+
+    Sim1 = path['Sim 1']
+    Iteration = path['Iteration']
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)
+
+    sns.set_style("ticks")
+
+    sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                         "lines.linewidth": 2, "xtick.labelsize": 8,
+                                         "ytick.labelsize": 8})
+
+    # plots data
+    ax = sns.scatterplot(x=Iteration, y=Sim1)
+
+    #ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+
+    # sets labels
+    ax.set_title("Sim 1")
+    ax.set_ylabel("Path length")
+    ax.set_xlabel("Iteration")
+
+    # save to file
+
+    plt.savefig(exportpath + 'Sim1.png', bbox_inches='tight')
+    plt.close(fig)
+
+    return 0
+
+
 def plot_degree_distribution_line(allnets, exportpath):
 
     """ Original function written by Dr Kleber Neves to plot the degree distributions
 
-         Arguments:
+        Arguments:
 
-            dd (list): Degree Distribution of an iigraph.Graph object
+                 allnets(list): List of networks generated with network_acquisition()
+                 exportpath(str): Path to export the dataset as a csv
 
        Returns:
 
@@ -814,7 +867,7 @@ def plot_degree_distribution_line(allnets, exportpath):
 
             os.makedirs(exportpath + "Degree_Dist")
 
-        plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+        plt.savefig(exportpath+"Degree_Dist/"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
         plt.close(fig)
 
 
@@ -822,9 +875,10 @@ def plot_degree_distribution_scatter(allnets, exportpath):
 
     """ Original function written by Dr Kleber Neves to plot the degree distributions
 
-         Arguments:
+       Arguments:
 
-            dd (list): Degree Distribution of an iigraph.Graph object
+                 allnets(list): List of networks generated with network_acquisition()
+                 exportpath(str): Path to export the dataset as a csv
 
        Returns:
 
@@ -868,56 +922,84 @@ def plot_degree_distribution_scatter(allnets, exportpath):
 
                     os.makedirs(exportpath + "Degree_Dist")
 
-                plt.savefig(exportpath+"Degree_Dist\\"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+                plt.savefig(exportpath+"Degree_Dist/"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
                 plt.close(fig)
 
                 del net
                 gc.collect()
 
 
-def plot_average_path(exportpath, pathdata):
+def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
-    """ Plots the path lenghts for a given network
+    """ Function to plot overlayed scatter plots of degree distribuitions of two networks
 
-             Arguments:
+     Arguments:
 
-                pathdata (str): Path for a *.csv spreadsheet
+             allnets(list): List of networks generated with network_acquisition()
+             exportpath(str): Path to export the dataset as a csv
 
-           Returns:
+       Returns:
 
-              Plots of path lengths
+          Plots of degree distributions
 
-       """
+   """
 
-    path = pd.read_csv(pathdata)
+    to_overlay = ['Sim 1', 'Sim 2']
 
-    Sim1 = path['Sim 1']
-    Iteration = path['Iteration']
+    Sim = 0
 
-    fig = plt.figure(figsize=(5, 5), dpi=500)
+    for nets in range(0, len(allnets[to_overlay[Sim]])):
 
-    sns.set_style("ticks")
+        fig = plt.figure(figsize=(5, 5), dpi=500)
 
-    sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
-                                         "lines.linewidth": 2, "xtick.labelsize": 8,
-                                         "ytick.labelsize": 8})
+        sns.set_style("ticks")
 
-    # plots data
-    ax = sns.scatterplot(x=Iteration, y=Sim1)
+        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
 
-    #ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+        if os.path.getsize(allnets[to_overlay[Sim]][nets]) > 0:
 
-    # sets labels
-    ax.set_title("Sim 1")
-    ax.set_ylabel("Path length")
-    ax.set_xlabel("Iteration")
+            net = igraph.Graph.Read(allnets[to_overlay[Sim]][nets])
+            net2 = igraph.Graph.Read(allnets[to_overlay[Sim+1]][nets])
 
-    # save to file
+            dd_1 = net.degree()
+            dd_2 = net2.degree()
 
-    plt.savefig(exportpath + 'Sim1.png', bbox_inches='tight')
-    plt.close(fig)
+            # get title
+            t = network_labelling(netpath=allnets[to_overlay[Sim]][nets])[0]
 
-    return 0
+            print(f'---------------[[PLOTTING {to_overlay[Sim]} {t}]]---------------')
+
+            # get title
+            t2 = network_labelling(netpath=allnets[to_overlay[Sim+1]][nets])[0]
+
+            print(f'---------------[[PLOTTING {to_overlay[Sim]} {t}]]---------------')
+
+            # plots data
+            ax = sns.scatterplot(data=np.bincount(dd_1), color="b", label=str(to_overlay[Sim])+t)
+            ax = sns.scatterplot(data=np.bincount(dd_2), color="r", label=str(to_overlay[Sim+1]+t))
+
+            ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+
+            # sets labels
+            ax.set_title(str(Sim)+" "+t)
+            ax.set_ylabel("Frequency")
+            ax.set_xlabel("Degree")
+            ax.legend()
+
+        # save to file
+        if not os.path.exists(exportpath + "Degree_Dist"):  # creates export directory
+
+            os.makedirs(exportpath + "Degree_Dist")
+
+        plt.savefig(exportpath + "Degree_Dist/" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1])+ t + '.png', bbox_inches='tight')
+        plt.close(fig)
+
+        del net
+        gc.collect()
+
+
 
 # ----------------------------------------------------------------------------------------------------------------- #
 # Support functions #
