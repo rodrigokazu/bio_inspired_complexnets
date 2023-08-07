@@ -944,7 +944,7 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
    """
 
-    to_overlay = ['Sim 1', 'Sim 2']
+    to_overlay = ['Sim 1', 'Sim 6']
 
     Sim = 0
 
@@ -974,11 +974,11 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
             # get title
             t2 = network_labelling(netpath=allnets[to_overlay[Sim+1]][nets])[0]
 
-            print(f'---------------[[PLOTTING {to_overlay[Sim]} {t}]]---------------')
+            print(f'---------------[[PLOTTING {to_overlay[Sim+1]} {t2}]]---------------')
 
             # plots data
             ax = sns.scatterplot(data=np.bincount(dd_1), color="b", label=str(to_overlay[Sim])+t)
-            ax = sns.scatterplot(data=np.bincount(dd_2), color="r", label=str(to_overlay[Sim+1]+t))
+            ax = sns.scatterplot(data=np.bincount(dd_2), color="r", label=str(to_overlay[Sim+1])+t)
 
             ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
 
@@ -993,7 +993,9 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
             os.makedirs(exportpath + "Degree_Dist")
 
-        plt.savefig(exportpath + "Degree_Dist/" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1])+ t + '.png', bbox_inches='tight')
+        plt.savefig(exportpath + "Degree_Dist/" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1]) + t + '.png',
+                    bbox_inches='tight')
+
         plt.close(fig)
 
         del net
