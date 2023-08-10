@@ -62,6 +62,7 @@ def analyse_allnets(allnets, exportpath):
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
     #t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
+    #t7 = threading.Thread(target=plot_graphsnapshot, args=(allnets, exportpath))
 
     t1.start()
     #t2.start()
@@ -69,6 +70,7 @@ def analyse_allnets(allnets, exportpath):
     #t4.start()
     #t5.start()
     #t6.start()
+    #t7.start()
 
     t1.join()
     #t2.join()
@@ -76,6 +78,7 @@ def analyse_allnets(allnets, exportpath):
     #t4.join()
     #t5.join()
     #t6.join()
+    #t7.join()
 
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
@@ -516,7 +519,7 @@ def parallel_neun_syn_count(allnets, exportpath):
                 # store number of neurons, synapses
                 neurons_per_it[Sim].append(len(net.vs.select(_degree_gt=0)))
                 neurons_over_1_per_it[Sim].append((len(net.vs.select(_degree_gt=1))))
-                synapses_per_it[Sim].append((len(net.es)))
+                synapses_per_it[Sim].append(net.ecount())
                 stage.append(re.search(r'(pruning|death)', label[0])[1])
                 it.append(int(label[1]))
 
@@ -1014,7 +1017,36 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
         del net
         gc.collect()
 
+
 def plot_graphsnapshot(allnets, exportpath):
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        for nets in allnets[Sim]:
+
+            if os.path.getsize(nets) > 0:
+
+                net = igraph.Graph.Read(nets)
+
+                # get title
+                t = network_labelling(netpath=nets)[0]
+
+                print(f'---------------[[PLOTTING {t}]]---------------')
+
+                fig, ax = plt.subplots()
+
+                igraph.plot(net, target=ax)
+
+                # save to file
+                if not os.path.exists(exportpath + "Graph_snapshots"):  # creates export directory
+
+                    os.makedirs(exportpath + "Graph_snapshots")
+
+                plt.savefig(exportpath + "Graph_snapshots/" + str(Sim) + "_" + t + '.png', bbox_inches='tight')
+                plt.close(fig)
+
+                del net
+                gc.collect()
 
     return 0
 
