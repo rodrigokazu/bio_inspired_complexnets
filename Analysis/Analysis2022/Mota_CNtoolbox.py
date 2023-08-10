@@ -56,26 +56,26 @@ def analyse_allnets(allnets, exportpath):
 
    """
 
-    #t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
+    t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
     #t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     #t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-    t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
+    #t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
 
-    #t1.start()
+    t1.start()
     #t2.start()
     #t3.start()
     #t4.start()
     #t5.start()
-    t6.start()
+    #t6.start()
 
-    #t1.join()
+    t1.join()
     #t2.join()
     #t3.join()
     #t4.join()
     #t5.join()
-    t6.join()
+    #t6.join()
 
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
@@ -497,6 +497,8 @@ def parallel_neun_syn_count(allnets, exportpath):
         labels[Sim] = list()
         NeuN_Syn[Sim] = list()
         it = list()
+        it_d = list()
+        it_p = list()
         stage = list()
 
         for nets in allnets[Sim]:
@@ -516,7 +518,16 @@ def parallel_neun_syn_count(allnets, exportpath):
                 neurons_over_1_per_it[Sim].append((len(net.vs.select(_degree_gt=1))))
                 synapses_per_it[Sim].append((len(net.es)))
                 stage.append(re.search(r'(pruning|death)', label[0])[1])
-                it.append(label[1])
+                it.append(int(label[1]))
+
+                if re.search(r'(pruning|death)', label[0])[1] == 'death':
+
+                    it_d.append(int(label[1]))
+
+                else:
+
+                    it_p.append(int(label[1]))
+
                 labels[Sim].append(label[0])
 
                 print(f'Network has {len(net.vs.select(_degree_gt=1))} active neurons.')
@@ -525,12 +536,14 @@ def parallel_neun_syn_count(allnets, exportpath):
                 gc.collect()
 
         NeuN_Syn[Sim] = {"Labels": labels, "Stage": stage, "Iteration": it, "NeuN": neurons_per_it[Sim], "Syn": synapses_per_it[Sim],
-                         "Active_NeuN": neurons_over_1_per_it[Sim]}
+                         "Active_NeuN": neurons_over_1_per_it[Sim], "it_d": it_d, "it_p": it_p}
 
     print(f'Writing to *.csv')
     write_metrics(metric=NeuN_Syn, exportpath=exportpath, name=name, label=label)
+    print(f'------------------------TRYING TO PLOT NOW-------------------------------')
+    plot_synaptic_fraction(NeuN_Syn=NeuN_Syn, exportpath=exportpath)
 
-    return 0
+    return NeuN_Syn
 
 
 def write_metrics(metric, exportpath, name, label):
@@ -1001,6 +1014,81 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
         del net
         gc.collect()
 
+def plot_graphsnapshot(allnets, exportpath):
+
+    return 0
+
+def plot_synaptic_fraction(NeuN_Syn, exportpath):
+
+    """ Function to plot synaptic preservation in each of the conditions of the model
+
+         Arguments:
+
+            NeuN_Syn (dict): Dictionary containing labels, stages, iterations, neurons per iteration and synapses per it
+            exportpath(str): Path to export the dataset as a csv
+
+       Returns:
+
+          Plots of Synaptic Fraction
+
+   """
+
+    # Declaring variables #
+
+    current_it = 0
+
+    it_death = list()
+    it_pruning = list()
+    overall_it = list()
+    sorted_syn = list()
+    sorted_neun = list()
+
+    # Running through experimental conditions, i.e. Simulations #
+
+    for Sim in NeuN_Syn:
+
+        it_pruning = np.array(NeuN_Syn[Sim]['it_p'])
+        it_pruning = it_pruning + 500
+        it_pruning = list(it_pruning)
+
+        overall_it = NeuN_Syn[Sim]['it_d'] + it_pruning
+
+        # Sorting the values to account for inconsistencies in the order of iterations
+
+        sorted_syn = [x for _, x in sorted(zip(overall_it, NeuN_Syn[Sim]['Syn']))]
+        sorted_neun = [x for _, x in sorted(zip(overall_it, NeuN_Syn[Sim]['Active_NeuN']))]
+
+        # plots data
+
+        print(f'----------------Plotting {Sim}---------------------')
+
+        fig = plt.figure(figsize=(5, 5), dpi=500)
+
+        sns.set_style("ticks")
+        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
+
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(sorted_syn), markers=True, linewidth=2, color='r', label="Synaptic Fraction")
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(sorted_neun), markers=True, linewidth=2, color='b', label="Neurons")
+        plt.legend(loc=1)
+
+        # sets labels
+        ax.set_title("Preservation of Synapses over time " + str(Sim))
+        ax.set_ylabel("Count")
+        ax.set_xlabel("Iteration")
+
+        # save to file
+        if not os.path.exists(exportpath + "Synaptic_Preservation"):  # creates export directory
+
+            os.makedirs(exportpath + "Synaptic_Preservation")
+
+        plt.savefig(exportpath + "Synaptic_Preservation/SP" + str(Sim) + '.png', bbox_inches='tight')
+
+        plt.close(fig)
+        gc.collect()
+
+    return 0
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
