@@ -502,6 +502,10 @@ def parallel_neun_syn_count(allnets, exportpath):
         it = list()
         it_d = list()
         it_p = list()
+        neun_d = list()
+        neun_p = list()
+        syn_d = list()
+        syn_p = list()
         stage = list()
 
         for nets in allnets[Sim]:
@@ -526,10 +530,14 @@ def parallel_neun_syn_count(allnets, exportpath):
                 if re.search(r'(pruning|death)', label[0])[1] == 'death':
 
                     it_d.append(int(label[1]))
+                    neun_d.append(len(net.vs.select(_degree_gt=0)))
+                    syn_d.append(net.ecount())
 
                 else:
 
                     it_p.append(int(label[1]))
+                    neun_p.append(len(net.vs.select(_degree_gt=0)))
+                    syn_p.append(net.ecount())
 
                 labels[Sim].append(label[0])
 
@@ -539,12 +547,13 @@ def parallel_neun_syn_count(allnets, exportpath):
                 gc.collect()
 
         NeuN_Syn[Sim] = {"Labels": labels, "Stage": stage, "Iteration": it, "NeuN": neurons_per_it[Sim], "Syn": synapses_per_it[Sim],
-                         "Active_NeuN": neurons_over_1_per_it[Sim], "it_d": it_d, "it_p": it_p}
+                         "Active_NeuN": neurons_over_1_per_it[Sim], "it_d": it_d, "it_p": it_p, "neun_d": neun_d, "neun_p": neun_p,
+                         "syn_d": syn_d, "syn_p": syn_p}
 
     print(f'Writing to *.csv')
     write_metrics(metric=NeuN_Syn, exportpath=exportpath, name=name, label=label)
     print(f'------------------------TRYING TO PLOT NOW-------------------------------')
-    plot_synaptic_fraction(NeuN_Syn=NeuN_Syn, exportpath=exportpath)
+    plot_synaptic_fraction_overlayed(NeuN_Syn=NeuN_Syn, exportpath=exportpath)
 
     return NeuN_Syn
 
@@ -960,7 +969,7 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
    """
 
-    to_overlay = ['Sim 1', 'Sim 6']
+    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']
 
     Sim = 0
 
@@ -978,9 +987,11 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
             net = igraph.Graph.Read(allnets[to_overlay[Sim]][nets])
             net2 = igraph.Graph.Read(allnets[to_overlay[Sim+1]][nets])
+            net3 = igraph.Graph.Read(allnets[to_overlay[Sim + 2]][nets])
 
             dd_1 = net.degree()
             dd_2 = net2.degree()
+            dd_3 = net3.degree()
 
             # get title
             t = network_labelling(netpath=allnets[to_overlay[Sim]][nets])[0]
@@ -990,16 +1001,23 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
             # get title
             t2 = network_labelling(netpath=allnets[to_overlay[Sim+1]][nets])[0]
 
-            print(f'---------------[[PLOTTING {to_overlay[Sim+1]} {t2}]]---------------')
+            print(f'---------------[[PLOTTING {to_overlay[Sim + 1]} {t2}]]---------------')
+
+            # get title
+            t3 = network_labelling(netpath=allnets[to_overlay[Sim + 2]][nets])[0]
+
+            print(f'---------------[[PLOTTING {to_overlay[Sim + 2]} {t3}]]---------------')
 
             # plots data
-            ax = sns.scatterplot(data=np.bincount(dd_1), color="b", label=str(to_overlay[Sim])+t)
-            ax = sns.scatterplot(data=np.bincount(dd_2), color="r", label=str(to_overlay[Sim+1])+t)
+            sns.set_palette("Blues_r")
+            ax = sns.scatterplot(data=np.bincount(dd_1), label="Feed-forwardness 50%")  # color="b"
+            ax = sns.scatterplot(data=np.bincount(dd_2), label="Feed-forwardness 80%")  # color=[1.0000, 0.4980, 0.]
+            ax = sns.scatterplot(data=np.bincount(dd_3), label="Feed-forwardness 100%")  # color="r"
 
             ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
 
             # sets labels
-            ax.set_title(str(Sim)+" "+t)
+            ax.set_title("Degree distributions for iteration " + t)
             ax.set_ylabel("Frequency")
             ax.set_xlabel("Degree")
             ax.legend()
@@ -1009,8 +1027,7 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
             os.makedirs(exportpath + "Degree_Dist")
 
-        plt.savefig(exportpath + "Degree_Dist/" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1]) + t + '.png',
-                    bbox_inches='tight')
+        plt.savefig(exportpath + "Degree_Dist/" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1]) + "_" + str(to_overlay[Sim+2]) + "_" + t + '.png', bbox_inches='tight')
 
         plt.close(fig)
 
@@ -1050,6 +1067,7 @@ def plot_graphsnapshot(allnets, exportpath):
 
     return 0
 
+
 def plot_synaptic_fraction(NeuN_Syn, exportpath):
 
     """ Function to plot synaptic preservation in each of the conditions of the model
@@ -1084,11 +1102,8 @@ def plot_synaptic_fraction(NeuN_Syn, exportpath):
         it_pruning = list(it_pruning)
 
         overall_it = NeuN_Syn[Sim]['it_d'] + it_pruning
-
-        # Sorting the values to account for inconsistencies in the order of iterations
-
-        sorted_syn = [x for _, x in sorted(zip(overall_it, NeuN_Syn[Sim]['Syn']))]
-        sorted_neun = [x for _, x in sorted(zip(overall_it, NeuN_Syn[Sim]['Active_NeuN']))]
+        overall_syn = NeuN_Syn[Sim]['syn_d'] + NeuN_Syn[Sim]['syn_p']
+        overall_neun = NeuN_Syn[Sim]['neun_d'] + NeuN_Syn[Sim]['neun_p']
 
         # plots data
 
@@ -1101,8 +1116,9 @@ def plot_synaptic_fraction(NeuN_Syn, exportpath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(sorted_syn), markers=True, linewidth=2, color='r', label="Synaptic Fraction")
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(sorted_neun), markers=True, linewidth=2, color='b', label="Neurons")
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, color='r', label="Synaptic Fraction")
+        #ax = sns.scatterplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, color='k', label="Synaptic Fraction")
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_neun), markers=True, linewidth=2, color='b', label="Neurons")
         plt.legend(loc=1)
 
         # sets labels
@@ -1122,6 +1138,59 @@ def plot_synaptic_fraction(NeuN_Syn, exportpath):
 
     return 0
 
+
+def plot_synaptic_fraction_overlayed(NeuN_Syn, exportpath):
+
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
+    legend = ["Random Death", "Mota's model", "Random Pruning"]
+    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+
+    fig = plt.figure(figsize=(5, 5), dpi=500) # generating the figure
+    #sns.set_palette("Blues_r")
+
+    for Sim in to_overlay:
+
+        it_pruning = np.array(NeuN_Syn[Sim]['it_p'])
+        it_pruning = it_pruning + 500
+        it_pruning = list(it_pruning)
+
+        overall_it = NeuN_Syn[Sim]['it_d'] + it_pruning
+        overall_syn = NeuN_Syn[Sim]['syn_d'] + NeuN_Syn[Sim]['syn_p']
+
+        # plots data
+
+        print(f'----------------Plotting {Sim}---------------------')
+
+        sns.set_style("ticks")
+
+        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
+
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, color=color[Sim],
+                          label=legend[to_overlay.index(Sim)])
+
+        plt.legend(loc=1)
+
+    Sim = 0
+
+    # sets labels
+    ax.set_title("Preservation of Synapses over time " + str(Sim))
+    ax.set_ylabel("Synaptic count")
+    ax.set_xlabel("Iteration")
+
+    # save to file
+    if not os.path.exists(exportpath + "Synaptic_Preservation"):  # creates export directory
+
+        os.makedirs(exportpath + "Synaptic_Preservation")
+
+    plt.savefig(exportpath + "Synaptic_Preservation/SP" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1]) + "_"
+                + str(to_overlay[Sim+2]) + '.png', bbox_inches='tight')
+
+    plt.close(fig)
+    gc.collect()
+
+    return 0
 
 # ----------------------------------------------------------------------------------------------------------------- #
 # Support functions #
@@ -1154,13 +1223,13 @@ def network_labelling(netpath):
 
         if netpath[char] == "h":
 
-            label = "death"+netpath[-7]
+            label = "death "+netpath[-7]
 
             return label, netpath[-7]
 
         else:
 
-            label = "pruning"+netpath[-7]
+            label = "pruning "+netpath[-7]
 
             return label, netpath[-7]
 
