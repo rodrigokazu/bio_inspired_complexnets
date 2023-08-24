@@ -63,7 +63,7 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
     #t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
-    t7 = threading.Thread(target=plot_clustering_lineplot, args=(exportpath, datapath))
+    t7 = threading.Thread(target=plot_GC_lineplot, args=(exportpath, datapath))
 
     #t1.start()
     #t2.start()
@@ -486,6 +486,11 @@ def parallel_giantcomponent(allnets, exportpath):
     for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
         gcs[Sim] = dict()
+        gcs[Sim + " iterations"] = list()
+        gcs[Sim]["it_d"] = list()
+        gcs[Sim]["it_p"] = list()
+        gcs[Sim]["gc_d"] = list()
+        gcs[Sim]["gc_p"] = list()
 
         for nets in allnets[Sim]:
 
@@ -507,11 +512,32 @@ def parallel_giantcomponent(allnets, exportpath):
 
                 gcs[Sim][label[0]] = _gcs
 
+                gcs[Sim][label[0]] = _gcs
+                gcs[Sim + " iterations"].append(label[0])
+
+                if re.search(r'(pruning|death)', label[0])[1] == 'death':
+
+                    gcs[Sim]["it_d"].append(int(label[1]))
+                    gcs[Sim]["gc_d"].append(_gcs)
+
+                else:
+
+                    gcs[Sim]["it_p"].append(int(label[1]))
+                    gcs[Sim]["gc_p"].append(_gcs)
+
                 del net
                 gc.collect()
 
         print(f'Writing to *.csv')
-        write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
+        print(f'Done for {Sim}')
+
+        with open('GC.pkl', 'wb') as fp:
+
+            pickle.dump(gcs, fp)
+
+            print('Giant component size saved successfully to file')  # saving it because of time required to run
+
+        #write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
 
     return gcs
 
@@ -1192,6 +1218,83 @@ def plot_clustering_lineplot(exportpath, datapath):
     return 0
 
 
+def plot_GC_lineplot(exportpath, datapath):
+
+    """ Function to plot overlayed progression of the giant component size of three different conditions of the Mota's Model
+
+
+        Arguments:
+
+               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
+               exportpath(str): Path to export the figures
+
+          Returns:
+
+             Plots of degree distributions
+
+      """
+
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
+    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+
+    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+
+        gcs = pickle.load(fp)
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
+    # sns.set_palette("Blues_r")
+
+    for Sim in to_overlay:
+
+        it_pruning = np.array(gcs[Sim]['it_p'])
+        it_pruning = it_pruning + 500
+        it_pruning = list(it_pruning)
+
+        overall_it = gcs[Sim]['it_d'] + it_pruning
+        overall_gc = gcs[Sim]['gc_d'] + gcs[Sim]['gc_p']
+
+        # plots data
+
+        print(f'----------------Plotting {Sim}---------------------')
+
+        sns.set_style("ticks")
+
+        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
+
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_gc), markers=True, linewidth=2, color=color[Sim],
+                          label=legend[to_overlay.index(Sim)])
+        ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
+        ax.axvspan(0, 500, alpha=0.05)
+
+        plt.legend(loc=1)
+
+    Sim = 0
+
+    # sets labels
+    ax.set_title("Average GC size for different conditions")
+    ax.set_ylabel("Giant component size")
+    ax.set_xlabel("Iteration")
+    ax.set_ylim(0, 51000)
+    ax.set_xlim(0, 3000)
+
+
+    # save to file
+    if not os.path.exists(exportpath + "Giant Component"):  # creates export directory
+
+        os.makedirs(exportpath + "Giant Component")
+
+    plt.savefig(exportpath + "Giant Component/GC_" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+                + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
+
+    plt.close(fig)
+    gc.collect()
+
+    return 0
+
+
 def plot_synaptic_fraction(NeuN_Syn, exportpath):
 
     """ Function to plot synaptic preservation in each of the conditions of the Mota's model
@@ -1278,12 +1381,12 @@ def plot_synaptic_fraction_overlayed(NeuN_Syn, exportpath):
 
    """
 
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
-    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']
+    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]
+    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
 
     fig = plt.figure(figsize=(5, 5), dpi=500) # generating the figure
-    #sns.set_palette("Blues_r")
+    sns.set_palette("Blues_r")
 
     for Sim in to_overlay:
 
@@ -1304,17 +1407,21 @@ def plot_synaptic_fraction_overlayed(NeuN_Syn, exportpath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, color=color[Sim],
-                          label=legend[to_overlay.index(Sim)])
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, label=legend[to_overlay.index(Sim)]) # color=color[Sim],
+
+        ax.axvline(x=500, ymin=0, ymax=10, linestyle="dashed", color="0.8")
+        ax.axvspan(0, 500, alpha=0.05)
 
         plt.legend(loc=1)
 
     Sim = 0
 
     # sets labels
-    ax.set_title("Preservation of Synapses over time " + str(Sim))
+    ax.set_title("Preservation of Synapses over time ")
     ax.set_ylabel("Synaptic count")
     ax.set_xlabel("Iteration")
+    ax.set_ylim(0, 600000)
+    ax.set_xlim(0, 3000)
 
     # save to file
     if not os.path.exists(exportpath + "Synaptic_Preservation"):  # creates export directory
