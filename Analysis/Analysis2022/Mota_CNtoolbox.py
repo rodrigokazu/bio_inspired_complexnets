@@ -22,6 +22,7 @@ import powerlaw
 import re
 import seaborn as sns
 import threading
+import time
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
@@ -63,7 +64,8 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
     #t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
-    t7 = threading.Thread(target=plot_GC_lineplot, args=(exportpath, datapath))
+    #t7 = threading.Thread(target=plot_GC_lineplot, args=(exportpath, datapath))
+    t8 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
 
     #t1.start()
     #t2.start()
@@ -71,7 +73,8 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t4.start()
     #t5.start()
     #t6.start()
-    t7.start()
+    #t7.start()
+    t8.start()
 
     #t1.join()
     #t2.join()
@@ -79,7 +82,8 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t4.join()
     #t5.join()
     #t6.join()
-    t7.join()
+    #t7.join()
+    t8.join()
 
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
@@ -626,6 +630,145 @@ def parallel_neun_syn_count(allnets, exportpath):
 
     return NeuN_Syn
 
+
+def parallel_R(allnets, exportpath):
+
+    """ Computes the robustness for a list of networks generated with network_acquisition()
+
+                 Arguments:
+
+                     allnets(list): List of networks generated with network_acquisition()
+
+               Returns:
+
+                  CSV of the measure R for all networks and simulations
+
+   """
+    R = dict()
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        sim_time = time.time()
+
+        R[Sim] = dict()
+        R[Sim + " iterations"] = list()
+        R[Sim]["it_d"] = list()
+        R[Sim]["it_p"] = list()
+        R[Sim]["R_d"] = list()
+        R[Sim]["R_p"] = list()
+
+        for nets in allnets[Sim]:
+
+            net_time = time.time()
+
+            if os.path.getsize(nets) > 0:
+
+                net = igraph.Graph.Read(nets)
+                OGnet = net.copy()
+
+                print(f'Computing R for {nets}')
+                print(f"[Calculating R on thread number ] {threading.current_thread()}")
+
+                label = network_labelling(netpath=nets)
+                name = "R.csv"
+
+                # Initialising GC #
+
+                sQsum = 0
+                removed = 0
+                sQcount = 0
+                method = "RD"  # options are RD or RB - recalculated degree or recalculated betweenness
+
+                while net.vcount() != 1:
+
+                    if method == "RD":
+
+                        degrees = net.degree()
+                        sorted_neun = sorted(range(len(degrees)), key=lambda x: degrees[x], reverse=True)
+
+                        #print(f'Removing node {sorted_neun[0]} on network {label[0]}')
+
+                        net.delete_vertices(sorted_neun[0])
+
+                    elif method == "RB":
+
+                        bt = net.betweenness()
+                        sorted_bt = sorted(range(len(bt)), key=lambda x: bt[x], reverse=True)
+
+                        net.delete_vertices(sorted_bt[0])
+
+                    _decomposed = net.as_undirected().decompose(mode=igraph.WEAK, maxcompno=1, minelements=1)
+
+                    if _decomposed:
+
+                        _gc = _decomposed[0]
+                        _gcs = len(_gc.vs)
+
+                        sQ = _gcs/OGnet.vcount()
+
+                        sQsum = sQsum + sQ
+                        sQcount = sQcount + 1
+
+
+                    else:
+
+                        print("Decompose for GC calculation failed")
+
+                        for annoyance in range(0, 100000000000):
+
+                            print(f"\n CRITICAL FAILURE on GC {_gcs} , sQsum {sQsum} r {sQsum/sQcount} Nleft {net.vcount()}")
+
+                        break
+
+                    removed = removed + 1
+
+                    print(f' GC is {_gcs} , sQsum is {sQsum} and estimated r is {sQsum/sQcount}')
+                    print(f'Neuronal count is now {net.vcount()}. We removed {removed} nodes on net {label[0]}. ')
+
+            r = sQsum/sQcount
+
+            print(f'R for {label[0]} is {r}')
+
+            R[Sim][label[0]] = r
+
+            R[Sim][label[0]] = r
+            R[Sim + " iterations"].append(label[0])
+
+            if re.search(r'(pruning|death)', label[0])[1] == 'death':
+
+                R[Sim]["it_d"].append(int(label[1]))
+                R[Sim]["R_d"].append(r)
+
+            else:
+
+                R[Sim]["it_p"].append(int(label[1]))
+                R[Sim]["R_p"].append(r)
+
+            net_end_time = time.time()
+            elapsed_net_time = net_end_time - net_time
+
+            print(f'Net time: {elapsed_net_time}')
+
+            del net
+            gc.collect()
+
+        sim_end_time = time.time()
+        elapsed_sim_time = sim_end_time - sim_time
+
+        print(f'Simulation time: {elapsed_sim_time}')
+
+        print(f'Writing to *.csv')
+        print(f'Done for {Sim}')
+
+    with open('R.pkl', 'wb') as fp:
+
+        pickle.dump(R, fp)
+
+        print('Measure R saved successfully to file')  # saving it because of time required to run
+
+    #write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
+
+    return R
 
 def write_metrics(metric, exportpath, name, label):
 
