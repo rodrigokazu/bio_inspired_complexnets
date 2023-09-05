@@ -64,7 +64,7 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
     #t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
-    #t7 = threading.Thread(target=plot_GC_lineplot, args=(exportpath, datapath))
+    #t7 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
     t8 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
 
     #t1.start()
@@ -661,6 +661,13 @@ def parallel_R(allnets, exportpath):
 
             net_time = time.time()
 
+            # Initialising GC #
+
+            sQsum = 0
+            removed = 0
+            sQcount = 0
+            method = "RD"  # options are RD or RB - recalculated degree or recalculated betweenness
+
             if os.path.getsize(nets) > 0:
 
                 net = igraph.Graph.Read(nets)
@@ -670,14 +677,7 @@ def parallel_R(allnets, exportpath):
                 print(f"[Calculating R on thread number ] {threading.current_thread()}")
 
                 label = network_labelling(netpath=nets)
-                name = "R.csv"
-
-                # Initialising GC #
-
-                sQsum = 0
-                removed = 0
-                sQcount = 0
-                method = "RD"  # options are RD or RB - recalculated degree or recalculated betweenness
+                #name = "R.csv"
 
                 while net.vcount() != 1:
 
@@ -722,14 +722,19 @@ def parallel_R(allnets, exportpath):
 
                     removed = removed + 1
 
-                    print(f' GC is {_gcs} , sQsum is {sQsum} and estimated r is {sQsum/sQcount}')
-                    print(f'Neuronal count is now {net.vcount()}. We removed {removed} nodes on net {label[0]}. ')
+                    print('--------------------------------------------------------------------------------------------')
+                    print(f' GC: {_gcs} , sQsum: {sQsum}, sQcount: {sQcount} r (estimated): {sQsum/sQcount}')
+                    print(f'Neuronal count is now {net.vcount()}. We removed {removed} nodes on net {Sim} {label[0]}. ')
+
+                    instant_end_time = time.time()
+                    elapsed_instant_time = instant_end_time - net_time
+
+                    print(f'Net time: {elapsed_instant_time}')
+                    print('--------------------------------------------------------------------------------------------')
 
             r = sQsum/sQcount
 
             print(f'R for {label[0]} is {r}')
-
-            R[Sim][label[0]] = r
 
             R[Sim][label[0]] = r
             R[Sim + " iterations"].append(label[0])
@@ -749,7 +754,7 @@ def parallel_R(allnets, exportpath):
 
             print(f'Net time: {elapsed_net_time}')
 
-            del net
+            #del net
             gc.collect()
 
         sim_end_time = time.time()
@@ -769,6 +774,7 @@ def parallel_R(allnets, exportpath):
     #write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
 
     return R
+
 
 def write_metrics(metric, exportpath, name, label):
 
@@ -1430,6 +1436,83 @@ def plot_GC_lineplot(exportpath, datapath):
         os.makedirs(exportpath + "Giant Component")
 
     plt.savefig(exportpath + "Giant Component/GC_" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+                + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
+
+    plt.close(fig)
+    gc.collect()
+
+    return 0
+
+
+def plot_R_overlayed(exportpath, datapath):
+
+    """ Function to plot overlayed progression of the giant component size of three different conditions of the Mota's Model
+
+
+        Arguments:
+
+               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
+               exportpath(str): Path to export the figures
+
+          Returns:
+
+             Plots of degree distributions
+
+      """
+
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
+    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+
+    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+
+        R = pickle.load(fp)
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
+    # sns.set_palette("Blues_r")
+
+    for Sim in to_overlay:
+
+        it_pruning = np.array(R[Sim]['it_p'])
+        it_pruning = it_pruning + 500
+        it_pruning = list(it_pruning)
+
+        overall_it = R[Sim]['it_d'] + it_pruning
+        overall_R = R[Sim]['gc_d'] + R[Sim]['gc_p']
+
+        # plots data
+
+        print(f'----------------Plotting {Sim}---------------------')
+
+        sns.set_style("ticks")
+
+        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
+
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_R), markers=True, linewidth=2, color=color[Sim],
+                          label=legend[to_overlay.index(Sim)])
+        ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
+        ax.axvspan(0, 500, alpha=0.05)
+
+        plt.legend(loc=1)
+
+    Sim = 0
+
+    # sets labels
+    ax.set_title("Robustness for different conditions")
+    ax.set_ylabel("R")
+    ax.set_xlabel("Iteration")
+    #ax.set_ylim(0, 51000)
+    #ax.set_xlim(0, 3000)
+
+
+    # save to file
+    if not os.path.exists(exportpath + "R"):  # creates export directory
+
+        os.makedirs(exportpath + "R")
+
+    plt.savefig(exportpath + "R/R_" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
                 + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
 
     plt.close(fig)
