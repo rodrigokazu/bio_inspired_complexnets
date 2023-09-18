@@ -63,27 +63,27 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-    #t6 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
+    t6 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
     #t7 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
-    t8 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
+    #t8 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
 
     #t1.start()
     #t2.start()
     #t3.start()
     #t4.start()
     #t5.start()
-    #t6.start()
+    t6.start()
     #t7.start()
-    t8.start()
+    #t8.start()
 
     #t1.join()
     #t2.join()
     #t3.join()
     #t4.join()
     #t5.join()
-    #t6.join()
+    t6.join()
     #t7.join()
-    t8.join()
+    #t8.join()
 
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
@@ -663,17 +663,20 @@ def parallel_R(allnets, exportpath):
 
             # Initialising GC #
 
-            sQsum = 0
-            removed = 0
-            sQcount = 0
-            method = "RD"  # options are RD or RB - recalculated degree or recalculated betweenness
+             # options are RD or RB - recalculated degree or recalculated betweenness
 
             if os.path.getsize(nets) > 0:
+
+                # Only resets the variables if the networks exists #
+                sQsum = 0
+                removed = 0
+                sQcount = 0
+                method = "RD"
 
                 net = igraph.Graph.Read(nets)
                 OGnet = net.copy()
 
-                print(f'Computing R for {nets}')
+                print(f'Computing R measure for {Sim} {nets}')
                 print(f"[Calculating R on thread number ] {threading.current_thread()}")
 
                 label = network_labelling(netpath=nets)
@@ -729,12 +732,12 @@ def parallel_R(allnets, exportpath):
                     instant_end_time = time.time()
                     elapsed_instant_time = instant_end_time - net_time
 
-                    print(f'Net time: {elapsed_instant_time}')
+                    print(f'Net time: {elapsed_instant_time/60} minutes.')
                     print('--------------------------------------------------------------------------------------------')
 
             r = sQsum/sQcount
 
-            print(f'R for {label[0]} is {r}')
+            print(f'R for {Sim} {label[0]} is {r}')
 
             R[Sim][label[0]] = r
             R[Sim + " iterations"].append(label[0])
@@ -752,7 +755,7 @@ def parallel_R(allnets, exportpath):
             net_end_time = time.time()
             elapsed_net_time = net_end_time - net_time
 
-            print(f'Net time: {elapsed_net_time}')
+            print(f'Final net time: {elapsed_net_time/60} minutes.')
 
             #del net
             gc.collect()
@@ -760,7 +763,7 @@ def parallel_R(allnets, exportpath):
         sim_end_time = time.time()
         elapsed_sim_time = sim_end_time - sim_time
 
-        print(f'Simulation time: {elapsed_sim_time}')
+        print(f'Simulation time: {elapsed_sim_time/60} minutes')
 
         print(f'Writing to *.csv')
         print(f'Done for {Sim}')
@@ -1009,6 +1012,65 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
     gc.collect()
 
     return 0
+
+
+def plot_betweenness_centrality(allnets, exportpath):
+
+    """ Original function written by Dr Kleber Neves to plot the degree distributions
+
+       Arguments:
+
+                 allnets(list): List of networks generated with network_acquisition()
+                 exportpath(str): Path to export the figures
+
+       Returns:
+
+          Plots of degree distributions
+
+   """
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        for nets in allnets[Sim]:
+
+            if os.path.getsize(nets) > 0:
+
+                net = igraph.Graph.Read(nets)
+                bc = net.betweenness()
+
+                # get title
+                t = network_labelling(netpath=nets)[0]
+
+                print(f'---------------[[PLOTTING {t}]]---------------')
+
+                fig = plt.figure(figsize=(5, 5), dpi=500)
+
+                sns.set_style("ticks")
+
+                sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                                        "lines.linewidth": 2, "xtick.labelsize": 8,
+                                                        "ytick.labelsize": 8})
+
+                # plots data
+                ax = sns.scatterplot(data=bc)
+                ax.set(yscale="log")
+                #ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+
+                # sets labels
+                ax.set_title(str(Sim)+" "+t)
+                ax.set_xlabel("Neuronal number")
+                ax.set_ylabel("Betweenness Centrality")
+
+                # save to file
+                if not os.path.exists(exportpath + "Betweenness_centrality"):  # creates export directory
+
+                    os.makedirs(exportpath + "Betweenness_centrality")
+
+                plt.savefig(exportpath+"Betweenness_centrality/"+str(Sim)+"_"+t+'.png', bbox_inches='tight')
+                plt.close(fig)
+
+                del net
+                gc.collect()
 
 
 def plot_degree_distribution_line(allnets, exportpath):
@@ -1446,7 +1508,7 @@ def plot_GC_lineplot(exportpath, datapath):
 
 def plot_R_overlayed(exportpath, datapath):
 
-    """ Function to plot overlayed progression of the giant component size of three different conditions of the Mota's Model
+    """ Function to plot overlayed progression of the R measure of three different conditions of the Mota's Model
 
 
         Arguments:
@@ -1478,7 +1540,7 @@ def plot_R_overlayed(exportpath, datapath):
         it_pruning = list(it_pruning)
 
         overall_it = R[Sim]['it_d'] + it_pruning
-        overall_R = R[Sim]['gc_d'] + R[Sim]['gc_p']
+        overall_R = R[Sim]['R_d'] + R[Sim]['R_p']
 
         # plots data
 

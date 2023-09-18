@@ -34,7 +34,9 @@ exportpath100 = "/home/rsiqueiradesouza/complexnets/repo/bio_inspired_complexnet
 main_path = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\complexnets\\dataset\\Large Nets"
 exportpath50 = "C:\\Users\\me1rss\\Desktop\\50k_test\\"
 exportpath100 = "C:\\Users\\me1rss\\Desktop\\100k_test\\"
-pathdata = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Projects\\complexnets\\Results_2022\\50k\\AveragePath.csv"
+pathdata = "C:\\Users\\me1rss\\Desktop\\50k_test\\AveragePath.csv"
+dbexport = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\complexnets\\Analysis_2023\\50k_nets\\"
+datapath = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\complexnets\\Analysis_2023\\50k_nets\\R.pkl"
 
 
 paths = network_density_paths(main_path)
@@ -44,7 +46,8 @@ hundrednets = network_acquisition(paths[1])  # For reference
 
 # Analysing the networks for all simulations in different threads #
 
-analyse_allnets(allnets=fiftynets, exportpath=exportpath50)
+analyse_allnets(allnets=fiftynets, exportpath=dbexport, datapath=datapath)
+
 
 
 
