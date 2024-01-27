@@ -58,30 +58,30 @@ def analyse_allnets(allnets, exportpath, **datapath):
 
    """
 
-    #t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
+    t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
     #t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
     #t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-    t6 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
+    #t6 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
     #t7 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
     #t8 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
 
-    #t1.start()
+    t1.start()
     #t2.start()
     #t3.start()
     #t4.start()
     #t5.start()
-    t6.start()
+    #t6.start()
     #t7.start()
     #t8.start()
 
-    #t1.join()
+    t1.join()
     #t2.join()
     #t3.join()
     #t4.join()
     #t5.join()
-    t6.join()
+    #t6.join()
     #t7.join()
     #t8.join()
 
@@ -585,13 +585,12 @@ def parallel_neun_syn_count(allnets, exportpath):
 
             if os.path.getsize(nets) > 0:
 
-                net = igraph.Graph.Read(nets)
-
                 print(f'Evaluating neurons and synapses for {nets}')
                 print(f"[Calculating NeuN_Syn on thread number ] {threading.current_thread()}")
 
+                net = igraph.Graph.Read(nets)
+
                 label = network_labelling(netpath=nets)
-                name = "NeuN_Syn_Meta.csv"
 
                 # store number of neurons, synapses
                 neurons_per_it[Sim].append(len(net.vs.select(_degree_gt=0)))
@@ -624,9 +623,16 @@ def parallel_neun_syn_count(allnets, exportpath):
                          "syn_d": syn_d, "syn_p": syn_p}
 
     print(f'Writing to *.csv')
+    name = "NeuN_Syn_Meta.csv"
     write_metrics(metric=NeuN_Syn, exportpath=exportpath, name=name, label=label)
     print(f'------------------------TRYING TO PLOT NOW-------------------------------')
     plot_synaptic_fraction_overlayed(NeuN_Syn=NeuN_Syn, exportpath=exportpath)
+
+    with open('NeuN_Syn.pkl', 'wb') as fp:
+
+        pickle.dump(NeuN_Syn, fp)
+
+        print('Measure NeuN_Syn saved successfully to file')  # saving it because of time required to run
 
     return NeuN_Syn
 
@@ -645,8 +651,9 @@ def parallel_R(allnets, exportpath):
 
    """
     R = dict()
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
 
-    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+    for Sim in to_overlay:  # Fifty nets is a dict with Sims as keys
 
         sim_time = time.time()
 
@@ -671,7 +678,7 @@ def parallel_R(allnets, exportpath):
                 sQsum = 0
                 removed = 0
                 sQcount = 0
-                method = "RD"
+                method = "RB"
 
                 net = igraph.Graph.Read(nets)
                 OGnet = net.copy()
@@ -768,7 +775,7 @@ def parallel_R(allnets, exportpath):
         print(f'Writing to *.csv')
         print(f'Done for {Sim}')
 
-    with open('R.pkl', 'wb') as fp:
+    with open('R_RB.pkl', 'wb') as fp:
 
         pickle.dump(R, fp)
 
@@ -1506,6 +1513,59 @@ def plot_GC_lineplot(exportpath, datapath):
     return 0
 
 
+def plot_pruningrate(NeuN_Syn, exportpath):
+
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
+    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)
+
+    sns.set_style("ticks")
+    sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                         "lines.linewidth": 2, "xtick.labelsize": 8,
+                                         "ytick.labelsize": 8})
+
+    # Running through experimental conditions, i.e. Simulations #
+
+    for Sim in to_overlay:
+
+        it_pruning = np.array(NeuN_Syn[Sim]['it_p'])
+        it_pruning = it_pruning + 500
+        it_pruning = list(it_pruning)
+
+        overall_it = NeuN_Syn[Sim]['it_d'] + it_pruning
+        overall_syn = NeuN_Syn[Sim]['syn_d'] + NeuN_Syn[Sim]['syn_p']
+        overall_neun = NeuN_Syn[Sim]['neun_d'] + NeuN_Syn[Sim]['neun_p']
+
+        # plots data
+
+        print(f'----------------Plotting {Sim}---------------------')
+
+        ax = sns.lineplot(x=np.array(it_pruning), y=np.array(NeuN_Syn[Sim]['syn_p']), markers=True, linewidth=2, color=color[Sim],
+                          label=legend[to_overlay.index(Sim)])
+        # ax = sns.scatterplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, color='k', label="Synaptic Fraction")
+        #ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_neun), markers=True, linewidth=2, color='b',
+        #                  label="Neurons")
+        plt.legend(loc=1)
+
+        # sets labels
+        ax.set_title("Preservation of Synapses over time " + str(Sim))
+        ax.set_ylabel("Count")
+        ax.set_xlabel("Iteration")
+
+        # save to file
+    if not os.path.exists(exportpath + "Pruning_Rate"):  # creates export directory
+
+        os.makedirs(exportpath + "Pruning_Rate")
+
+    plt.savefig(exportpath + "Pruning_Rate/Pruning_Rate" + str(Sim) + '.png', bbox_inches='tight')
+
+    plt.close(fig)
+    gc.collect()
+
+    return 0
+
 def plot_R_overlayed(exportpath, datapath):
 
     """ Function to plot overlayed progression of the R measure of three different conditions of the Mota's Model
@@ -1552,7 +1612,7 @@ def plot_R_overlayed(exportpath, datapath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_R), markers=True, linewidth=2, color=color[Sim],
+        ax = sns.scatterplot(x=np.array(overall_it), y=np.array(overall_R), markers=True, linewidth=2, color=color[Sim],
                           label=legend[to_overlay.index(Sim)])
         ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
@@ -1565,8 +1625,8 @@ def plot_R_overlayed(exportpath, datapath):
     ax.set_title("Robustness for different conditions")
     ax.set_ylabel("R")
     ax.set_xlabel("Iteration")
-    #ax.set_ylim(0, 51000)
-    #ax.set_xlim(0, 3000)
+    ax.set_ylim(-0.005, 0.5)
+    ax.set_xlim(-25, 3000)
 
 
     # save to file
@@ -1574,13 +1634,15 @@ def plot_R_overlayed(exportpath, datapath):
 
         os.makedirs(exportpath + "R")
 
-    plt.savefig(exportpath + "R/R_" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+    plt.savefig(exportpath + "R/R_scatter" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
                 + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
 
     plt.close(fig)
     gc.collect()
 
     return 0
+
+    # Running through experimental conditions, i.e. Simulations #
 
 
 def plot_synaptic_fraction(NeuN_Syn, exportpath):
