@@ -19,6 +19,7 @@ import os
 import pandas as pd
 import pickle
 import powerlaw
+import random
 import re
 import seaborn as sns
 import threading
@@ -58,30 +59,30 @@ def analyse_allnets(allnets, exportpath, **datapath):
 
    """
 
-    t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
+    #t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
     #t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
-    #t3 = threading.Thread(target=parallel_density, args=(allnets, exportpath))
+    #t3 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
     #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-    #t6 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
+    t6 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
     #t7 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
-    #t8 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
+    #t8 = threading.Thread(target=plot_pruningrate, args=(datapath, exportpath))
 
-    t1.start()
+    #t1.start()
     #t2.start()
     #t3.start()
     #t4.start()
     #t5.start()
-    #t6.start()
+    t6.start()
     #t7.start()
     #t8.start()
 
-    t1.join()
+    #t1.join()
     #t2.join()
     #t3.join()
     #t4.join()
     #t5.join()
-    #t6.join()
+    t6.join()
     #t7.join()
     #t8.join()
 
@@ -564,8 +565,10 @@ def parallel_neun_syn_count(allnets, exportpath):
     neurons_per_it = {}
     neurons_over_1_per_it = {}
     synapses_per_it = {}
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6', 'Sim 8', 'Sim 7']
 
-    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+    for Sim in to_overlay:  # Fifty nets is a dict with Sims as keys
 
         neurons_per_it[Sim] = list()
         neurons_over_1_per_it[Sim] = list()
@@ -626,9 +629,11 @@ def parallel_neun_syn_count(allnets, exportpath):
     name = "NeuN_Syn_Meta.csv"
     write_metrics(metric=NeuN_Syn, exportpath=exportpath, name=name, label=label)
     print(f'------------------------TRYING TO PLOT NOW-------------------------------')
-    plot_synaptic_fraction_overlayed(NeuN_Syn=NeuN_Syn, exportpath=exportpath)
+    #plot_synaptic_fraction_overlayed(NeuN_Syn=NeuN_Syn, exportpath=exportpath)
 
-    with open('NeuN_Syn.pkl', 'wb') as fp:
+    pkl_file = exportpath + 'NeuN_Syn.pkl'
+
+    with open(pkl_file, 'wb') as fp:
 
         pickle.dump(NeuN_Syn, fp)
 
@@ -670,7 +675,7 @@ def parallel_R(allnets, exportpath):
 
             # Initialising GC #
 
-             # options are RD or RB - recalculated degree or recalculated betweenness
+             # options are FRD or RD or RB - Full random degree or recalculated degree or recalculated betweenness
 
             if os.path.getsize(nets) > 0:
 
@@ -678,7 +683,7 @@ def parallel_R(allnets, exportpath):
                 sQsum = 0
                 removed = 0
                 sQcount = 0
-                method = "RB"
+                method = "FRD"
 
                 net = igraph.Graph.Read(nets)
                 OGnet = net.copy()
@@ -689,7 +694,16 @@ def parallel_R(allnets, exportpath):
                 label = network_labelling(netpath=nets)
                 #name = "R.csv"
 
+
                 while net.vcount() != 1:
+
+
+                    if method == "FRD":
+
+                        degrees = net.degree()
+
+                        net.delete_vertices(random.choice(range(len(degrees))))
+
 
                     if method == "RD":
 
@@ -703,9 +717,11 @@ def parallel_R(allnets, exportpath):
                     elif method == "RB":
 
                         bt = net.betweenness()
-                        sorted_bt = sorted(range(len(bt)), key=lambda x: bt[x], reverse=True)
+                        #sorted_bt = sorted(range(len(bt)), key=lambda x: bt[x], reverse=True)
 
-                        net.delete_vertices(sorted_bt[0])
+                        # net.delete_vertices(sorted_bt[0])
+
+                        net.delete_vertices(bt.index(max(bt)))
 
                     _decomposed = net.as_undirected().decompose(mode=igraph.WEAK, maxcompno=1, minelements=1)
 
@@ -775,7 +791,7 @@ def parallel_R(allnets, exportpath):
         print(f'Writing to *.csv')
         print(f'Done for {Sim}')
 
-    with open('R_RB.pkl', 'wb') as fp:
+    with open('R_FRD.pkl', 'wb') as fp:
 
         pickle.dump(R, fp)
 
@@ -1211,7 +1227,10 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
    """
 
-    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']
+    #to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']
+    to_overlay = ['Sim 1', 'Sim 2', "Sim 6"]
+    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
 
     Sim = 0
 
@@ -1223,7 +1242,7 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
         sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
-                                             "ytick.labelsize": 8})
+                                             "ytick.labelsize": 8, "lines.markersize":9})
 
         if os.path.getsize(allnets[to_overlay[Sim]][nets]) > 0:
 
@@ -1252,11 +1271,11 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
             # plots data
             sns.set_palette("Blues_r")
-            ax = sns.scatterplot(data=np.bincount(dd_1), label="Feed-forwardness 50%")  # color="b"
-            ax = sns.scatterplot(data=np.bincount(dd_2), label="Feed-forwardness 80%")  # color=[1.0000, 0.4980, 0.]
-            ax = sns.scatterplot(data=np.bincount(dd_3), label="Feed-forwardness 100%")  # color="r"
-
-            ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4], xlim=[10 ** -0.2, 10 ** 4])
+            ax = sns.scatterplot(data=np.bincount(dd_1), label=legend[Sim], color=color[to_overlay[Sim]])  # color="b"  label="Feed-forwardness 50%"
+            ax = sns.scatterplot(data=np.bincount(dd_2), label=legend[Sim+1], color=color[to_overlay[Sim+1]])  # color=[1.0000, 0.4980, 0.]
+            ax = sns.scatterplot(data=np.bincount(dd_3), label=legend[Sim+2], color=color[to_overlay[Sim+2]])  # color="r"
+            sns.despine()
+            ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4.5], xlim=[10 ** -0.2, 10 ** 4])
 
             # sets labels
             ax.set_title("Degree distributions for iteration " + t)
@@ -1375,16 +1394,19 @@ def plot_clustering_lineplot(exportpath, datapath):
 
       """
 
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
-    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    # to_overlay = ['Sim 1', 'Sim 2', 'Sim 6'] # Model conditions
+    # legend = ["Mota's model", "Random Death", "Random Pruning"] # Model conditions
+    # color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1'] # FF
+    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"] # FF
 
-    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+
+    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         clustering = pickle.load(fp)
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
-    # sns.set_palette("Blues_r")
+    sns.set_palette("Blues_r") # FF
 
     for Sim in to_overlay:
 
@@ -1405,8 +1427,10 @@ def plot_clustering_lineplot(exportpath, datapath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_cc), markers=True, linewidth=2, color=color[Sim],
-                          label=legend[to_overlay.index(Sim)])
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_cc), markers=True, linewidth=2, label=legend[to_overlay.index(Sim)])
+        # color = color[Sim], # Model Conditions
+        ax.set(yscale="log")
+        ax.set_ylim(10**-5, 10**0)
         ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
 
@@ -1418,7 +1442,7 @@ def plot_clustering_lineplot(exportpath, datapath):
     ax.set_title("Average clustering coefficient for different conditions")
     ax.set_ylabel("Clustering coefficient")
     ax.set_xlabel("Iteration")
-    ax.set_ylim(0, 0.1)
+    ##ax.set_ylim(0, 0.1)
     ax.set_xlim(0, 3000)
 
 
@@ -1427,7 +1451,7 @@ def plot_clustering_lineplot(exportpath, datapath):
 
         os.makedirs(exportpath + "Clustering")
 
-    plt.savefig(exportpath + "Clustering/CC_" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+    plt.savefig(exportpath + "Clustering/CC_FF_loglog" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
                 + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
 
     plt.close(fig)
@@ -1513,10 +1537,10 @@ def plot_GC_lineplot(exportpath, datapath):
     return 0
 
 
-def plot_pruningrate(NeuN_Syn, exportpath):
+def plot_pruningrate(datapath, exportpath):
 
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    to_overlay = ['Sim 1', 'Sim 2'] # 'Sim 6'
+    legend = ["Mota's model", "Random Death"]  # "Random Pruning"
     color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
 
     fig = plt.figure(figsize=(5, 5), dpi=500)
@@ -1526,23 +1550,35 @@ def plot_pruningrate(NeuN_Syn, exportpath):
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
 
+    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+
+        NeuN_Syn = pickle.load(fp)
+
     # Running through experimental conditions, i.e. Simulations #
+
+    pruned_fraction = dict()
 
     for Sim in to_overlay:
 
         it_pruning = np.array(NeuN_Syn[Sim]['it_p'])
-        it_pruning = it_pruning + 500
-        it_pruning = list(it_pruning)
+        pruned_fraction[Sim] = list()
+        pruned_fraction[Sim].append(25)
 
-        overall_it = NeuN_Syn[Sim]['it_d'] + it_pruning
-        overall_syn = NeuN_Syn[Sim]['syn_d'] + NeuN_Syn[Sim]['syn_p']
-        overall_neun = NeuN_Syn[Sim]['neun_d'] + NeuN_Syn[Sim]['neun_p']
+        sorted_syn = [x for _, x in sorted(zip(it_pruning, NeuN_Syn[Sim]['syn_p']))]
+        it_pruning = sorted(it_pruning)
+
+        # Getting the percentages #
+
+        for syn in range(1, len(NeuN_Syn[Sim]['syn_p'])):
+
+            decimal = sorted_syn[syn]/sorted_syn[syn-1]
+            pruned_fraction[Sim].append(100 - decimal*100)
 
         # plots data
 
         print(f'----------------Plotting {Sim}---------------------')
 
-        ax = sns.lineplot(x=np.array(it_pruning), y=np.array(NeuN_Syn[Sim]['syn_p']), markers=True, linewidth=2, color=color[Sim],
+        ax = sns.lineplot(x=it_pruning, y=pruned_fraction[Sim], markers=True, linewidth=2, color=color[Sim],
                           label=legend[to_overlay.index(Sim)])
         # ax = sns.scatterplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, color='k', label="Synaptic Fraction")
         #ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_neun), markers=True, linewidth=2, color='b',
@@ -1550,16 +1586,16 @@ def plot_pruningrate(NeuN_Syn, exportpath):
         plt.legend(loc=1)
 
         # sets labels
-        ax.set_title("Preservation of Synapses over time " + str(Sim))
-        ax.set_ylabel("Count")
-        ax.set_xlabel("Iteration")
+        ax.set_title("Rate of synaptic pruning (Minus RP)")
+        ax.set_ylabel("Percentage of synapses removed")
+        ax.set_xlabel("Iteration on the SP stage")
 
         # save to file
     if not os.path.exists(exportpath + "Pruning_Rate"):  # creates export directory
 
         os.makedirs(exportpath + "Pruning_Rate")
 
-    plt.savefig(exportpath + "Pruning_Rate/Pruning_Rate" + str(Sim) + '.png', bbox_inches='tight')
+    plt.savefig(exportpath + "Pruning_Rate/Pruning_Rate_minusRP" + '.png', bbox_inches='tight')
 
     plt.close(fig)
     gc.collect()
