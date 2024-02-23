@@ -60,11 +60,11 @@ def analyse_allnets(allnets, exportpath, **datapath):
    """
 
     #t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
-    #t2 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
+    #t2 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
     #t3 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
-    #t5 = threading.Thread(target=parallel_giantcomponent, args=(allnets, exportpath))
-    t6 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
+    t5 = threading.Thread(target=parallel_averagepath, args=(allnets, exportpath))
+    #t6 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
     #t7 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
     #t8 = threading.Thread(target=plot_pruningrate, args=(datapath, exportpath))
 
@@ -72,8 +72,8 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t2.start()
     #t3.start()
     #t4.start()
-    #t5.start()
-    t6.start()
+    t5.start()
+    #t6.start()
     #t7.start()
     #t8.start()
 
@@ -81,8 +81,8 @@ def analyse_allnets(allnets, exportpath, **datapath):
     #t2.join()
     #t3.join()
     #t4.join()
-    #t5.join()
-    t6.join()
+    t5.join()
+    #t6.join()
     #t7.join()
     #t8.join()
 
@@ -465,7 +465,11 @@ def parallel_fitnet(allnets, exportpath):
 
                 gc.collect()
 
-        plot_alpha_D(alpha_D=alpha_D_list, Sim=Sim, exportpath=exportpath)
+        with open('Alpha_D.pkl', 'wb') as fp:
+
+            pickle.dump(fits, fp)
+
+            print('Measure Alpha_D saved successfully to file')  # saving it because of time required to run
 
         print(f'Writing to *.csv')
         write_metrics(metric=fits, exportpath=exportpath, name=name, label=label)
@@ -829,7 +833,7 @@ def write_metrics(metric, exportpath, name, label):
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
-def plot_alpha_D(alpha_D, exportpath, Sim):
+def plot_alpha_D(datapath, exportpath):
 
     """ Original function written by Dr Kleber Neves to plot the degree distributions, customised for Alpha and D
     Alpha and D can be obtained using fit_net()
@@ -845,194 +849,218 @@ def plot_alpha_D(alpha_D, exportpath, Sim):
 
    """
 
-    # Creating relevant lists #
+    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
-    overall_it = list()
-    current_it = 0
+        fits = pickle.load(fp)
 
-    overall_alpha = list()
-    overall_D = list()
-    it_death = list()
-    it_pruning = list()
-    alpha_death = list()
-    alpha_pruning = list()
-    D_death = list()
-    D_pruning = list()
 
-    # Populate the lists with the content from alpha_D #
+    for Sim in fits:
 
-    for label in alpha_D:
+        # Creating relevant lists #
 
-        if label[0] == "death":
+        overall_it = list()
+        current_it = 0
 
-            it_death.append(label[1])
-            alpha_death.append(label[2])
-            D_death.append(label[3])
+        overall_alpha = list()
+        overall_D = list()
+        it_death = list()
+        it_pruning = list()
+        alpha_death = list()
+        alpha_pruning = list()
+        D_death = list()
+        D_pruning = list()
 
-            overall_it.append(current_it)
-            overall_alpha.append(label[2])
-            overall_D.append(label[3])
+        # Populate the lists with the content from alpha_D #
+
+        alpha_D = fits[Sim]
+
+        for label in alpha_D:
+
+            if alpha_D[label][0] == "death":
+
+                it_death.append(alpha_D[label][1])
+                alpha_death.append(alpha_D[label][2])
+                D_death.append(alpha_D[label][3])
+
+                overall_it.append(current_it)
+                overall_alpha.append(alpha_D[label][2])
+                overall_D.append(alpha_D[label][3])
+
+            else:
+
+                it_pruning.append(alpha_D[label][1])
+                alpha_pruning.append(alpha_D[label][2])
+                D_pruning.append(alpha_D[label][3])
+
+                overall_it.append(current_it)
+                overall_alpha.append(alpha_D[label][2])
+                overall_D.append(alpha_D[label][3])
+
+            current_it = current_it + 1
+
+
+        # Dealing with "L" and "U" outputs in a very inefficient way #
+
+        delete_list_a_death = []
+        delete_list_it_death = []
+        delete_list_a_pruning = []
+        delete_list_it_pruning = []
+
+        for index in range(0, len(alpha_death)):
+
+            if alpha_death[index] == "L":
+
+                delete_list_a_death.append(index)
+
+            if alpha_death[index] == "U":
+
+                delete_list_a_death.append(index)
+
+        for index in range(0, len(it_death)):
+
+            if it_death[index] == "L":
+
+                delete_list_it_death.append(index)
+
+            if alpha_death[index] == "U":
+
+                delete_list_it_death.append(index)
+
+        for index in range(0, len(alpha_pruning)):
+
+            if alpha_pruning[index] == "L":
+
+                delete_list_a_pruning.append(index)
+
+            if alpha_pruning[index] == "U":
+
+                delete_list_a_pruning.append(index)
+
+        for index in range(0, len(it_pruning)):
+
+            if it_pruning[index] == "L":
+
+                delete_list_it_pruning.append(index)
+
+            if it_pruning[index] == "U":
+
+                delete_list_it_pruning.append(index)
+
+        for index in sorted(delete_list_a_death, reverse=True):
+
+            del alpha_death[index]
+
+        for index in sorted(delete_list_it_death, reverse=True):
+
+            del it_death[index]
+
+        for index in sorted(delete_list_a_pruning, reverse=True):
+
+            del alpha_pruning[index]
+
+        for index in sorted(delete_list_it_pruning, reverse=True):
+
+            del it_pruning[index]
+
+        if len(it_death) > 0:
+
+            # Sorting the values of alpha to account for inconsistencies in the order of iterations
+            sorted_alpha_d = [x for _, x in sorted(zip(it_death, alpha_death))]
 
         else:
 
-            it_pruning.append(label[1])
-            alpha_pruning.append(label[2])
-            D_pruning.append(label[3])
+            sorted_alpha_d = []
 
-            overall_it.append(current_it)
-            overall_alpha.append(label[2])
-            overall_D.append(label[3])
+        sorted_alpha_p = [x for _, x in sorted(zip(it_pruning, alpha_pruning))]
 
-        current_it = current_it + 1
+        sorted_alpha = sorted_alpha_d + sorted_alpha_p
 
+        # Sorting the values of D to account for inconsistencies in the order of iterations
+        sorted_D_d = [x for _, x in sorted(zip(it_death, D_death))]
+        sorted_D_p = [x for _, x in sorted(zip(it_pruning, D_pruning))]
 
-    # Dealing with "L" and "U" outputs in a very inefficient way #
+        sorted_D = sorted_D_d + sorted_D_p
 
-    delete_list_a_death = []
-    delete_list_it_death = []
-    delete_list_a_pruning = []
-    delete_list_it_pruning = []
+        # Dealing with the L and U outputs again
 
-    for index in range(0, len(alpha_death)):
+        delete_from_sorted = []
 
-        if alpha_death[index] == "L":
+        it_pruning_copy = it_pruning
 
-            delete_list_a_death.append(index)
+        for index in range(0, len(sorted_D)):
 
-        if alpha_death[index] == "U":
+            if sorted_D[index] == "L":
 
-            delete_list_a_death.append(index)
+                delete_from_sorted.append(index)
 
-    for index in range(0, len(it_death)):
+            if sorted_D[index] == "U":
 
-        if it_death[index] == "L":
+                delete_from_sorted.append(index)
 
-            delete_list_it_death.append(index)
+            # Dealing with "L" and "U" outputs
 
-        if alpha_death[index] == "U":
+        if len(it_death) > 0:
 
-            delete_list_it_death.append(index)
+            # concatenating death and pruning iterations
+            it_pruning = np.array(it_pruning_copy)
+            it_pruning = it_pruning + 500
+            it_pruning = list(it_pruning)
 
-    for index in range(0, len(alpha_pruning)):
+        overall_it = it_death + it_pruning
+        overall_it = sorted(overall_it)
 
-        if alpha_pruning[index] == "L":
+        for index in sorted(delete_from_sorted, reverse=True):  # It doesn't seem to be getting in this loop half of the time
 
-            delete_list_a_pruning.append(index)
+            del sorted_D[index]
+            del sorted_alpha[index]
+            del overall_it[index]
 
-        if alpha_pruning[index] == "U":
 
-            delete_list_a_pruning.append(index)
+        # plots data
 
-    for index in range(0, len(it_pruning)):
+        fig = plt.figure(figsize=(5, 5), dpi=500)
 
-        if it_pruning[index] == "L":
+        sns.set_style("ticks")
+        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 10, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
 
-            delete_list_it_pruning.append(index)
+        ax = sns.lineplot(x=overall_it, y=sorted_alpha, markers=True, linewidth=4, color='r', label="Alpha")
+        ax = sns.lineplot(x=overall_it, y=sorted_D, markers=True, linewidth=4, color='b', label="Distance")
 
-        if it_pruning[index] == "U":
+        ax.set(ylim=[0, 2])
+        ax.set_ylabel("Measure")
+        ax.set_xlabel("Iteration")
 
-            delete_list_it_pruning.append(index)
+        sns.despine()
+        plt.legend()
 
-    for index in sorted(delete_list_a_death, reverse=True):
+        if Sim == "Sim 1":
 
-        del alpha_death[index]
+            # sets labels
+            ax.set_title("Mota's model")
 
-    for index in sorted(delete_list_it_death, reverse=True):
+        elif Sim == "Sim 2":
 
-        del it_death[index]
+            ax.set_title("Random Death")
 
-    for index in sorted(delete_list_a_pruning, reverse=True):
+        elif Sim == "Sim 6":
 
-        del alpha_pruning[index]
+            ax.set_title("Random Pruning")
 
-    for index in sorted(delete_list_it_pruning, reverse=True):
+        else:
 
-        del it_pruning[index]
+            ax.set_title(str(Sim))
 
-    if len(it_death) > 0:
+        # save to file
+        if not os.path.exists(exportpath + "Alpha_D"):  # creates export directory
 
-        # Sorting the values of alpha to account for inconsistencies in the order of iterations
-        sorted_alpha_d = [x for _, x in sorted(zip(it_death, alpha_death))]
+            os.makedirs(exportpath + "Alpha_D")
 
-    else:
+        plt.savefig(exportpath + "Alpha_D/" + str(Sim) + '.png', bbox_inches='tight')
 
-        sorted_alpha_d = []
-
-    sorted_alpha_p = [x for _, x in sorted(zip(it_pruning, alpha_pruning))]
-
-    sorted_alpha = sorted_alpha_d + sorted_alpha_p
-
-    # Sorting the values of D to account for inconsistencies in the order of iterations
-    sorted_D_d = [x for _, x in sorted(zip(it_death, D_death))]
-    sorted_D_p = [x for _, x in sorted(zip(it_pruning, D_pruning))]
-
-    sorted_D = sorted_D_d + sorted_D_p
-
-    # Dealing with the L and U outputs again
-
-    delete_from_sorted = []
-
-    it_pruning_copy = it_pruning
-
-    for index in range(0, len(sorted_D)):
-
-        if sorted_D[index] == "L":
-
-            delete_from_sorted.append(index)
-
-        if sorted_D[index] == "U":
-
-            delete_from_sorted.append(index)
-
-        # Dealing with "L" and "U" outputs
-
-    if len(it_death) > 0:
-
-        # concatenating death and pruning iterations
-        it_pruning = np.array(it_pruning_copy)
-        it_pruning = it_pruning + 500
-        it_pruning = list(it_pruning)
-
-    overall_it = it_death + it_pruning
-    overall_it = sorted(overall_it)
-
-    for index in sorted(delete_from_sorted, reverse=True):  # It doesn't seem to be getting in this loop half of the time
-
-        del sorted_D[index]
-        del sorted_alpha[index]
-        del overall_it[index]
-
-
-    # plots data
-
-    fig = plt.figure(figsize=(5, 5), dpi=500)
-
-    sns.set_style("ticks")
-    sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
-                                         "lines.linewidth": 2, "xtick.labelsize": 8,
-                                         "ytick.labelsize": 8})
-
-    ax = sns.lineplot(x=overall_it, y=sorted_alpha, markers=True, linewidth=2, color='r', label="Alpha")
-    ax = sns.lineplot(x=overall_it, y=sorted_D, markers=True, linewidth=2, color='b', label="Distance")
-    ax.set(ylim=[0, 2])
-    plt.legend()
-
-    # sets labels
-    ax.set_title("Evolution of Alpha and D")
-    ax.set_title(str(Sim))
-    ax.set_ylabel("Measure")
-    ax.set_xlabel("Iteration")
-
-    # save to file
-    if not os.path.exists(exportpath + "Alpha_D"):  # creates export directory
-
-        os.makedirs(exportpath + "Alpha_D")
-
-    plt.savefig(exportpath + "Alpha_D/" + str(Sim) + '.png', bbox_inches='tight')
-
-    plt.close(fig)
-    del alpha_D
-    gc.collect()
+        plt.close(fig)
+        gc.collect()
 
     return 0
 
@@ -1313,11 +1341,14 @@ def plot_averagepath_lineplot(exportpath, datapath):
 
       """
 
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
-    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    #to_overlay = ['Sim 1', 'Sim 2', 'Sim 6'] # Model conditions
+    #legend = ["Mota's model", "Random Death", "Random Pruning"] # Model conditions
+    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
+    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+    sns.set_palette("Blues_r")  # FF
 
-    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         averagepaths = pickle.load(fp)
 
@@ -1345,18 +1376,21 @@ def plot_averagepath_lineplot(exportpath, datapath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_ap), markers=True, linewidth=2, color=color[Sim],
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_ap), markers=True, linewidth=2.5,
                           label=legend[to_overlay.index(Sim)])
+
+        # color = color[Sim], # Model Conditions
 
         ax.axvline(x=500, ymin=0, ymax=10, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
+        sns.despine()
 
         plt.legend(loc=1)
 
     Sim = 0
 
     # sets labels
-    ax.set_title("Average path length for different conditions")
+    ax.set_title("Average path length")
     ax.set_ylabel("Average path length")
     ax.set_xlabel("Iteration")
     ax.set_ylim(0, 10)
@@ -1368,7 +1402,7 @@ def plot_averagepath_lineplot(exportpath, datapath):
 
         os.makedirs(exportpath + "Average_paths")
 
-    plt.savefig(exportpath + "Average_paths/AP_" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+    plt.savefig(exportpath + "Average_paths/AP_FF" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
                 + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
 
     plt.close(fig)
@@ -1394,19 +1428,18 @@ def plot_clustering_lineplot(exportpath, datapath):
 
       """
 
-    # to_overlay = ['Sim 1', 'Sim 2', 'Sim 6'] # Model conditions
-    # legend = ["Mota's model", "Random Death", "Random Pruning"] # Model conditions
-    # color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    #to_overlay = ['Sim 1', 'Sim 2', 'Sim 6'] # Model conditions
+    #legend = ["Mota's model", "Random Death", "Random Pruning"] # Model conditions
+    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
     to_overlay = ['Sim 8', 'Sim 7', 'Sim 1'] # FF
-    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"] # FF
-
+    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+    sns.set_palette("Blues_r")  # FF
 
     with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         clustering = pickle.load(fp)
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
-    sns.set_palette("Blues_r") # FF
 
     for Sim in to_overlay:
 
@@ -1427,19 +1460,21 @@ def plot_clustering_lineplot(exportpath, datapath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_cc), markers=True, linewidth=2, label=legend[to_overlay.index(Sim)])
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_cc), markers=True, linewidth=2.5,
+                          label=legend[to_overlay.index(Sim)])
         # color = color[Sim], # Model Conditions
         ax.set(yscale="log")
         ax.set_ylim(10**-5, 10**0)
         ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
+        sns.despine()
 
         plt.legend(loc=1)
 
     Sim = 0
 
     # sets labels
-    ax.set_title("Average clustering coefficient for different conditions")
+    ax.set_title("Average clustering coefficient")
     ax.set_ylabel("Clustering coefficient")
     ax.set_xlabel("Iteration")
     ##ax.set_ylim(0, 0.1)
@@ -1451,7 +1486,7 @@ def plot_clustering_lineplot(exportpath, datapath):
 
         os.makedirs(exportpath + "Clustering")
 
-    plt.savefig(exportpath + "Clustering/CC_FF_loglog" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+    plt.savefig(exportpath + "Clustering/CC_loglog" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
                 + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
 
     plt.close(fig)
@@ -1460,14 +1495,14 @@ def plot_clustering_lineplot(exportpath, datapath):
     return 0
 
 
-def plot_GC_lineplot(exportpath, datapath):
+def plot_GC_overlayed(datapath, exportpath):
 
     """ Function to plot overlayed progression of the giant component size of three different conditions of the Mota's Model
 
 
         Arguments:
 
-               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
+               datapath (dict): Path to the pickled file exported by parallel_giantcomponent(allnets, exportpath)
                exportpath(str): Path to export the figures
 
           Returns:
@@ -1476,11 +1511,14 @@ def plot_GC_lineplot(exportpath, datapath):
 
       """
 
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']  # Model conditions, 'Sim 6'
+    legend = ["Mota's model", "Random Death", "Random Pruning"]  # Model conditions , "Random Pruning"
     color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    #to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
+    #legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+    #sns.set_palette("Blues_r")  # FF
 
-    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         gcs = pickle.load(fp)
 
@@ -1496,6 +1534,8 @@ def plot_GC_lineplot(exportpath, datapath):
         overall_it = gcs[Sim]['it_d'] + it_pruning
         overall_gc = gcs[Sim]['gc_d'] + gcs[Sim]['gc_p']
 
+        overall_it_sorted, overall_gc_sorted = zip(*sorted(zip(overall_it, overall_gc)))
+
         # plots data
 
         print(f'----------------Plotting {Sim}---------------------')
@@ -1506,10 +1546,12 @@ def plot_GC_lineplot(exportpath, datapath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_gc), markers=True, linewidth=2, color=color[Sim],
+        ax = sns.lineplot(x=np.array(overall_it_sorted), y=np.array(overall_gc_sorted), markers=True, linewidth=2.5, color=color[Sim],
                           label=legend[to_overlay.index(Sim)])
+        # color=color[Sim],
         ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
+        sns.despine()
 
         plt.legend(loc=1)
 
@@ -1539,9 +1581,12 @@ def plot_GC_lineplot(exportpath, datapath):
 
 def plot_pruningrate(datapath, exportpath):
 
-    to_overlay = ['Sim 1', 'Sim 2'] # 'Sim 6'
-    legend = ["Mota's model", "Random Death"]  # "Random Pruning"
-    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    #to_overlay = ['Sim 1', 'Sim 2']  # Model conditions, 'Sim 6'
+    #legend = ["Mota's model", "Random Death"]  # Model conditions , "Random Pruning"
+    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
+    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+    sns.set_palette("Blues_r")  # FF
 
     fig = plt.figure(figsize=(5, 5), dpi=500)
 
@@ -1550,7 +1595,7 @@ def plot_pruningrate(datapath, exportpath):
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
 
-    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         NeuN_Syn = pickle.load(fp)
 
@@ -1578,15 +1623,16 @@ def plot_pruningrate(datapath, exportpath):
 
         print(f'----------------Plotting {Sim}---------------------')
 
-        ax = sns.lineplot(x=it_pruning, y=pruned_fraction[Sim], markers=True, linewidth=2, color=color[Sim],
+        ax = sns.lineplot(x=it_pruning, y=pruned_fraction[Sim], markers=True, linewidth=2.5,
                           label=legend[to_overlay.index(Sim)])
-        # ax = sns.scatterplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, color='k', label="Synaptic Fraction")
-        #ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_neun), markers=True, linewidth=2, color='b',
-        #                  label="Neurons")
+        ax.set_ylim(-0.005, 30)
+
+        # color = color[Sim], # Model Conditions
         plt.legend(loc=1)
+        sns.despine()
 
         # sets labels
-        ax.set_title("Rate of synaptic pruning (Minus RP)")
+        ax.set_title("Rate of synaptic pruning")
         ax.set_ylabel("Percentage of synapses removed")
         ax.set_xlabel("Iteration on the SP stage")
 
@@ -1595,7 +1641,7 @@ def plot_pruningrate(datapath, exportpath):
 
         os.makedirs(exportpath + "Pruning_Rate")
 
-    plt.savefig(exportpath + "Pruning_Rate/Pruning_Rate_minusRP" + '.png', bbox_inches='tight')
+    plt.savefig(exportpath + "Pruning_Rate/Pruning_Rate_FF" + '.png', bbox_inches='tight')
 
     plt.close(fig)
     gc.collect()
@@ -1618,16 +1664,19 @@ def plot_R_overlayed(exportpath, datapath):
 
       """
 
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
-    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    #to_overlay = ['Sim 1', 'Sim 2', 'Sim 6'] # Model conditions
+    #legend = ["Mota's model", "Random Death", "Random Pruning"] # Model conditions
+    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
+    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+    sns.set_palette("Blues_r")  # FF
 
-    with open(datapath['datapath'], 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         R = pickle.load(fp)
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
-    # sns.set_palette("Blues_r")
+
 
     for Sim in to_overlay:
 
@@ -1637,6 +1686,9 @@ def plot_R_overlayed(exportpath, datapath):
 
         overall_it = R[Sim]['it_d'] + it_pruning
         overall_R = R[Sim]['R_d'] + R[Sim]['R_p']
+
+        overall_it_sorted, overall_R_sorted = zip(*sorted(zip(overall_it, overall_R)))
+
 
         # plots data
 
@@ -1648,7 +1700,7 @@ def plot_R_overlayed(exportpath, datapath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.scatterplot(x=np.array(overall_it), y=np.array(overall_R), markers=True, linewidth=2, color=color[Sim],
+        ax = sns.lineplot(x=np.array(overall_it_sorted), y=np.array(overall_R_sorted), markers=True, linewidth=2.5,
                           label=legend[to_overlay.index(Sim)])
         ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
@@ -1658,11 +1710,12 @@ def plot_R_overlayed(exportpath, datapath):
     Sim = 0
 
     # sets labels
-    ax.set_title("Robustness for different conditions")
+    ax.set_title("Robustness to targeted attacks")
     ax.set_ylabel("R")
     ax.set_xlabel("Iteration")
     ax.set_ylim(-0.005, 0.5)
     ax.set_xlim(-25, 3000)
+    sns.despine()
 
 
     # save to file
@@ -1670,7 +1723,7 @@ def plot_R_overlayed(exportpath, datapath):
 
         os.makedirs(exportpath + "R")
 
-    plt.savefig(exportpath + "R/R_scatter" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+    plt.savefig(exportpath + "R/R_FRD_FF" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
                 + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
 
     plt.close(fig)
@@ -1752,13 +1805,14 @@ def plot_synaptic_fraction(NeuN_Syn, exportpath):
     return 0
 
 
-def plot_synaptic_fraction_overlayed(NeuN_Syn, exportpath):
+def plot_synaptic_fraction_overlayed(datapath, exportpath):
 
     """ Function to plot overlayed curves of synaptic preservation of three different conditions of the Mota's Model
 
      Arguments:
 
-            NeuN_Syn (dict): Dictionary containing labels, stages, iterations, neurons per iteration and synapses per it
+            NeuN_Syn (dict): Path to a dictionary containing labels, stages, iterations, neurons per iteration and
+            synapses per it
             exportpath(str): Path to export the dataset as a csv
 
        Returns:
@@ -1767,12 +1821,20 @@ def plot_synaptic_fraction_overlayed(NeuN_Syn, exportpath):
 
    """
 
-    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']
-    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]
-    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
 
-    fig = plt.figure(figsize=(5, 5), dpi=500) # generating the figure
-    sns.set_palette("Blues_r")
+    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
+
+        NeuN_Syn = pickle.load(fp)
+
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']  # Model conditions
+    legend = ["Mota's model", "Random Death", "Random Pruning"]  # Model conditions
+    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    # to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
+    # legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+    # sns.set_palette("Blues_r")  # FF
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
+
 
     for Sim in to_overlay:
 
@@ -1793,10 +1855,14 @@ def plot_synaptic_fraction_overlayed(NeuN_Syn, exportpath):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2, label=legend[to_overlay.index(Sim)]) # color=color[Sim],
+        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2.5, color = color[Sim],
+                          label=legend[to_overlay.index(Sim)])
+
+        # color = color[Sim], # Model Conditions
 
         ax.axvline(x=500, ymin=0, ymax=10, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
+        sns.despine()
 
         plt.legend(loc=1)
 
