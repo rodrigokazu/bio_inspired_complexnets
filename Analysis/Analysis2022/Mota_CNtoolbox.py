@@ -686,6 +686,7 @@ def parallel_robustness(allnets, exportpath):
         GC[Sim]["R_d"] = list()
         GC[Sim]["R_p"] = list()
 
+
         for nets in allnets[Sim]:
 
             net_time = time.time()
