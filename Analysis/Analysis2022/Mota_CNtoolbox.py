@@ -646,9 +646,10 @@ def parallel_neun_syn_count(allnets, exportpath):
     return NeuN_Syn
 
 
-def parallel_R(allnets, exportpath):
+def parallel_robustness(allnets, exportpath):
 
-    """ Computes the robustness for a list of networks generated with network_acquisition()
+    """ Computes the robustness (GC or the R metric) for a list of networks generated with network_acquisition()
+        Please change the name of the output file
 
                  Arguments:
 
@@ -660,18 +661,30 @@ def parallel_R(allnets, exportpath):
 
    """
     R = dict()
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']
+    GC = dict()
+    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6', 'Sim 8', 'Sim 7']
+    name = "GC_R"
+    option = "R" # can be R or GC
 
     for Sim in to_overlay:  # Fifty nets is a dict with Sims as keys
 
         sim_time = time.time()
 
         R[Sim] = dict()
+
         R[Sim + " iterations"] = list()
         R[Sim]["it_d"] = list()
         R[Sim]["it_p"] = list()
         R[Sim]["R_d"] = list()
         R[Sim]["R_p"] = list()
+
+        GC[Sim] = dict()
+
+        GC[Sim + " iterations"] = list()
+        GC[Sim]["it_d"] = list()
+        GC[Sim]["it_p"] = list()
+        GC[Sim]["R_d"] = list()
+        GC[Sim]["R_p"] = list()
 
         for nets in allnets[Sim]:
 
@@ -679,11 +692,12 @@ def parallel_R(allnets, exportpath):
 
             # Initialising GC #
 
-             # options are FRD or RD or RB - Full random degree or recalculated degree or recalculated betweenness
+             # methods are FRD or RD or RB - Full random degree or recalculated degree or recalculated betweenness
 
             if os.path.getsize(nets) > 0:
 
                 # Only resets the variables if the networks exists #
+
                 sQsum = 0
                 removed = 0
                 sQcount = 0
@@ -692,15 +706,12 @@ def parallel_R(allnets, exportpath):
                 net = igraph.Graph.Read(nets)
                 OGnet = net.copy()
 
-                print(f'Computing R measure for {Sim} {nets}')
-                print(f"[Calculating R on thread number ] {threading.current_thread()}")
+                print(f'Computing Robustness for {Sim} {nets}')
+                print(f"[Calculating on thread number ] {threading.current_thread()}")
 
                 label = network_labelling(netpath=nets)
-                #name = "R.csv"
-
 
                 while net.vcount() != 1:
-
 
                     if method == "FRD":
 
@@ -708,13 +719,10 @@ def parallel_R(allnets, exportpath):
 
                         net.delete_vertices(random.choice(range(len(degrees))))
 
-
                     if method == "RD":
 
                         degrees = net.degree()
                         sorted_neun = sorted(range(len(degrees)), key=lambda x: degrees[x], reverse=True)
-
-                        #print(f'Removing node {sorted_neun[0]} on network {label[0]}')
 
                         net.delete_vertices(sorted_neun[0])
 
@@ -734,76 +742,102 @@ def parallel_R(allnets, exportpath):
                         _gc = _decomposed[0]
                         _gcs = len(_gc.vs)
 
+                    if option == "R":
+
                         sQ = _gcs/OGnet.vcount()
 
                         sQsum = sQsum + sQ
                         sQcount = sQcount + 1
 
+                        removed = removed + 1
 
-                    else:
+                        print('---------------------------------------------------------------------------------------')
+                        print(f' GC: {_gcs} , sQsum: {sQsum}, sQcount: {sQcount} r (estimated): {sQsum/sQcount}')
+                        print(f'Neuronal count is now {net.vcount()}. We removed {removed} nodes on net {Sim} {label[0]}. ')
 
-                        print("Decompose for GC calculation failed")
+                        instant_end_time = time.time()
+                        elapsed_instant_time = instant_end_time - net_time
 
-                        for annoyance in range(0, 100000000000):
+                        print(f'Net time: {elapsed_instant_time/60} minutes.')
+                        print('---------------------------------------------------------------------------------------')
 
-                            print(f"\n CRITICAL FAILURE on GC {_gcs} , sQsum {sQsum} r {sQsum/sQcount} Nleft {net.vcount()}")
+                        r = sQsum/sQcount
 
-                        break
+                        print(f'R for {Sim} {label[0]} is {r}')
 
-                    removed = removed + 1
+                        R[Sim][label[0]] = r
+                        R[Sim + " iterations"].append(label[0])
 
-                    print('--------------------------------------------------------------------------------------------')
-                    print(f' GC: {_gcs} , sQsum: {sQsum}, sQcount: {sQcount} r (estimated): {sQsum/sQcount}')
-                    print(f'Neuronal count is now {net.vcount()}. We removed {removed} nodes on net {Sim} {label[0]}. ')
+                        if re.search(r'(pruning|death)', label[0])[1] == 'death':
 
-                    instant_end_time = time.time()
-                    elapsed_instant_time = instant_end_time - net_time
+                            R[Sim]["it_d"].append(int(label[1]))
+                            R[Sim]["R_d"].append(r)
 
-                    print(f'Net time: {elapsed_instant_time/60} minutes.')
-                    print('--------------------------------------------------------------------------------------------')
+                        else:
 
-            r = sQsum/sQcount
+                            R[Sim]["it_p"].append(int(label[1]))
+                            R[Sim]["R_p"].append(r)
 
-            print(f'R for {Sim} {label[0]} is {r}')
+                        net_end_time = time.time()
+                        elapsed_net_time = net_end_time - net_time
 
-            R[Sim][label[0]] = r
-            R[Sim + " iterations"].append(label[0])
+                        print(f'Final net time: {elapsed_net_time/60} minutes.')
 
-            if re.search(r'(pruning|death)', label[0])[1] == 'death':
+                        #del net
+                        gc.collect()
 
-                R[Sim]["it_d"].append(int(label[1]))
-                R[Sim]["R_d"].append(r)
+                    elif option == "GC":
 
-            else:
+                        removed = removed + 1
 
-                R[Sim]["it_p"].append(int(label[1]))
-                R[Sim]["R_p"].append(r)
+                        print('---------------------------------------------------------------------------------------')
+                        print(f' GC: {_gcs} ')
+                        print(f'Neuronal count is now {net.vcount()}. We removed {removed} nodes on net {Sim} {label[0]}.')
 
-            net_end_time = time.time()
-            elapsed_net_time = net_end_time - net_time
+                        instant_end_time = time.time()
+                        elapsed_instant_time = instant_end_time - net_time
 
-            print(f'Final net time: {elapsed_net_time/60} minutes.')
+                        print(f'Net time: {elapsed_instant_time / 60} minutes.')
+                        print('---------------------------------------------------------------------------------------')
 
-            #del net
-            gc.collect()
+                        GC[Sim][label[0]] = _gcs
+                        GC[Sim + " iterations"].append(label[0])
+
+                        if re.search(r'(pruning|death)', label[0])[1] == 'death':
+
+                            GC[Sim]["it_d"].append(int(label[1]))
+                            GC[Sim]["R_d"].append(_gcs)
+
+                        else:
+
+                            GC[Sim]["it_p"].append(int(label[1]))
+                            GC[Sim]["R_p"].append(_gcs)
+
+                        net_end_time = time.time()
+                        elapsed_net_time = net_end_time - net_time
+
+                        print(f'Final net time: {elapsed_net_time / 60} minutes.')
+
+                        # del net
+                        gc.collect()
+
 
         sim_end_time = time.time()
         elapsed_sim_time = sim_end_time - sim_time
 
         print(f'Simulation time: {elapsed_sim_time/60} minutes')
 
-        print(f'Writing to *.csv')
-        print(f'Done for {Sim}')
+    with open('R_GC_FRD.pkl', 'wb') as fp:
 
-    with open('R_FRD.pkl', 'wb') as fp:
+        print(f'Writing to file')
 
-        pickle.dump(R, fp)
+        pickle.dump(GC, fp)
 
-        print('Measure R saved successfully to file')  # saving it because of time required to run
+        print('Robustness (GC) saved successfully to file')  # saving it because of time required to run
 
     #write_metrics(metric=gcs, exportpath=exportpath, name=name, label=label)
 
-    return R
+    return GC
 
 
 def write_metrics(metric, exportpath, name, label):
