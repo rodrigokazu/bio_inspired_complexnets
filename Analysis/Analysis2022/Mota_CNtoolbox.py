@@ -61,27 +61,27 @@ def analyse_allnets(allnets, exportpath, **datapath):
 
     #t1 = threading.Thread(target=parallel_neun_syn_count, args=(allnets, exportpath))
     #t2 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
-    #t3 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
+    t3 = threading.Thread(target=plot_degree_distribution_overlayedscatter, args=(allnets, exportpath))
     #t4 = threading.Thread(target=parallel_cluster, args=(allnets, exportpath))
-    t5 = threading.Thread(target=parallel_robustness, args=(allnets, exportpath))
+    #t5 = threading.Thread(target=parallel_robustness, args=(allnets, exportpath))
     #t6 = threading.Thread(target=parallel_R, args=(allnets, exportpath))
     #t7 = threading.Thread(target=plot_R_overlayed, args=(exportpath, datapath))
     #t8 = threading.Thread(target=plot_pruningrate, args=(datapath, exportpath))
 
     #t1.start()
     #t2.start()
-    #t3.start()
+    t3.start()
     #t4.start()
-    t5.start()
+   #t5.start()
     #t6.start()
     #t7.start()
     #t8.start()
 
     #t1.join()
     #t2.join()
-    #t3.join()
+    t3.join()
     #t4.join()
-    t5.join()
+    #t5.join()
     #t6.join()
     #t7.join()
     #t8.join()
@@ -1277,7 +1277,7 @@ def plot_degree_distribution_scatter(allnets, exportpath):
 
 def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
-    """ Function to plot overlayed scatter plots of degree distribuitions of of three different conditions of the
+    """ Function to plot overlayed scatter plots of degree distribuitions of three different conditions of the
      Mota's Model
 
      Arguments:
@@ -1291,10 +1291,9 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
 
    """
 
-
-    #to_overlay = ['Sim 1', 'Sim 2', "Sim 6"]
-    #legend = ["Mota's model", "Random Death", "Random Pruning"]
-    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+    # to_overlay = ['Sim 1', 'Sim 2', "Sim 6"]
+    # legend = ["Mota's model", "Random Death", "Random Pruning"]
+    # color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
 
     to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
     legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
@@ -1338,10 +1337,9 @@ def plot_degree_distribution_overlayedscatter(allnets, exportpath):
             print(f'---------------[[PLOTTING {to_overlay[Sim + 2]} {t3}]]---------------')
 
             # plots data
-            sns.set_palette("Blues_r")
-            ax = sns.scatterplot(data=np.bincount(dd_1), label=legend[Sim], color=color[to_overlay[Sim]])  # color="b"  label="Feed-forwardness 50%"
-            ax = sns.scatterplot(data=np.bincount(dd_2), label=legend[Sim+1], color=color[to_overlay[Sim+1]])  # color=[1.0000, 0.4980, 0.]
-            ax = sns.scatterplot(data=np.bincount(dd_3), label=legend[Sim+2], color=color[to_overlay[Sim+2]])  # color="r"
+            ax = sns.scatterplot(data=np.bincount(dd_1), label=legend[Sim])  # color="b"  label="Feed-forwardness 50%"
+            ax = sns.scatterplot(data=np.bincount(dd_2), label=legend[Sim+1])  # color=[1.0000, 0.4980, 0.]
+            ax = sns.scatterplot(data=np.bincount(dd_3), label=legend[Sim+2])  # color="r"
             sns.despine()
             ax.set(yscale="log", xscale="log", ylim=[10 ** -0.2, 10 ** 4.5], xlim=[10 ** -0.2, 10 ** 4])
 
