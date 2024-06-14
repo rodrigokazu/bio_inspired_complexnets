@@ -18,7 +18,7 @@ Toolbox for relevant metric-extraction from biologically inspired complex networ
 
 # Modules and Functions
 
-**1. analyse_all(allnets, exportpath, **datapath)**
+****1. analyse_all(allnets, exportpath, **datapath)****
 
 def analyse_all(allnets, exportpath, **datapath):
     """ 
