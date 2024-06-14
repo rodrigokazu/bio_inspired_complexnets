@@ -9,7 +9,7 @@ Reference for what was simulated in each Sim is in the file simulation_reference
 
 Code repository for the paper: "Selective pruning and neuronal death generate heavy-tail network connectivity" by Kazu et al. If you have any questions please contact:  r.siqueiradesouza@sheffield.ac.uk
 
-# Documentation version 1.0:
+# Documentation version 1.1:
 
 # The model
 
@@ -115,6 +115,29 @@ def analyse_all(allnets, exportpath, **datapath):
     Returns:
         None
     """
+****1.1 plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, **datapath)****
+
+def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, **datapath):
+
+    """ Plots the analysis for the networks modelled at 50k neurons density and export results;
+        This function initiates all the threads and run the analysis in parallel for the same network;
+        The .join() function guarantees that all threads will finish at the same time
+
+         Arguments:
+
+            allnets(list): Path for the networks  generated with the network_acquisition() function of this toolbox for
+            the overlayed scats functiom.
+             datapath(str): Path for a folder where all the analyses generated with this toolbox are saved as *.pkl
+             to_overlay(list): List of simulations to be plotted in the "Sim X" convention
+             legend (list): List of words to compose the legend of the figures
+             color (dict): Dict of colours for the plot with the "Sim X" convention as keys
+
+          Returns:
+
+          Overlayed plots.
+
+   """
+
 **2. fit_net(label, nets, Sim, exportpath, save_graphs=False)**
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
