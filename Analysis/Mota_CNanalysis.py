@@ -50,6 +50,8 @@ datapath = ("C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\compl
             "\\GC.pkl")
 exportkeynets = "C:\\Users\\me1rss\\Desktop\\keynets\\"
 
+analysis2024 = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\complexnets\\Analysis_2024\\"
+
 
 paths =Mota_CNtoolbox.network_density_paths(main_path)
 
@@ -57,6 +59,8 @@ fiftynets = Mota_CNtoolbox.network_acquisition(paths[0])
 hundrednets = Mota_CNtoolbox.network_acquisition(paths[1])
 keynets = Mota_CNtoolbox.network_acquisition(paths[2])  # For reference
 
-Mota_CNtoolbox.analyse_all(allnets=keynets, exportpath=exportkeynets)
+#Mota_CNtoolbox.analyse_all(allnets=keynets, exportpath=exportkeynets)
+
+Mota_CNtoolbox.plot_degree_distribution_overlayedscats(allnets=keynets, exportpath=analysis2024)
 
 
