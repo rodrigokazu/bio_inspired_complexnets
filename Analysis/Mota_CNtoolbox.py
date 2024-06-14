@@ -569,10 +569,8 @@ def parallel_neun_syn_counts(allnets, exportpath):
     neurons_per_it = {}
     neurons_over_1_per_it = {}
     synapses_per_it = {}
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6', 'Sim 8', 'Sim 7']
 
-
-    for Sim in to_overlay:  # Fifty nets is a dict with Sims as keys
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
 
         neurons_per_it[Sim] = list()
         neurons_over_1_per_it[Sim] = list()
@@ -905,7 +903,7 @@ def plot_ALL_analysis():
     t4.join()
 
     to_overlay = ['Sim 1x', 'Sim 2x', "Sim 6x"]
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    legend = ["Our model", "Random Death", "Random Pruning"]
     color = {"Sim 6x": "r", "Sim 2x": [1.0000, 0.4980, 0.], "Sim 1x": "b"}
 
     # to_overlay = ['Sim 8x', 'Sim 7x', 'Sim 1x']  # FF
