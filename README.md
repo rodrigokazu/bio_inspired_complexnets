@@ -1,20 +1,99 @@
-# bio_inspired_complexnets
+#  Neural Pathways Laboratory Wellcome Sanger Institute & Cambridge Neuroscience in collaboration with the University of Sheffield and the University of Brazil (Federal University of Rio de Janeiro)
+
 ”Sculpting is easy.  You just chip away everything that does not look like David.” Michelangelo  (attributed),  about  the  making  of  his  masterpiece David
 
 Reference for what was simulated in each Sim is in the file simulation_reference.xls
 
 Code repository for the paper: "Selective pruning and neuronal death generate heavy-tail network connectivity" by Kazu et al. If you have any questions please contact:  r.siqueiradesouza@sheffield.ac.uk
 
-# Usage: 
-
-To use this toolbox, you will need the path of the folder where you want to export the results and the path for the folder called 50k or 100k (neuronal densities of your network) which contains the folders Sim 1 to Sim X with your simulations, each of which will have an "Edges" folder inside containing *.edges files.
-
 # Documentation version 1.0:
 
+# The model
 
-Neural Pathways Laboratory
-University of Sheffield - University of Brazil (Federal University of Rio de Janeiro)
-Toolbox for relevant metric-extraction from biologically inspired complex networks
+You can use the *.sh files from the CMD folder to run the model. Place it inside the folder that has the model you want to run (ie. motaXT0.65.py).
+
+The computational model described in your script has several parameters that are set up using the `argparse` library for command-line arguments.
+
+The parameters in the model are listed in each bash file and are customisable as follows: 
+
+
+1. **Neurons per Module** (`neurons_per_module`): This is the number of neurons in each module of the network.
+   - Argument: `-nn`
+   - Type: `int`
+   - Default: `10000`
+
+2. **Synapses per Neuron** (`synapses_per_neuron`): This is the number of synapses each neuron has.
+   - Argument: `-syn`
+   - Type: `int`
+   - Default: `100`
+
+3. **Number of Modules** (`number_of_modules`): This is the number of modules in the network.
+   - Argument: `-mn`
+   - Type: `int`
+   - Default: `1`
+
+4. **Meta Network** (`meta_network`): This parameter determines the type of meta network used.
+   - Argument: `-meta`
+   - Choices: `['random', 'offdiagonal', 'full', 'smallworld', 'lattice', 'file']`
+   - Default: `full`
+
+5. **Meta Network Argument** (`metaargs`): This is an additional argument for the meta network, such as the percentage of rewiring for a small-world network.
+   - Argument: `-metaargs`
+   - Type: `float`
+   - Default: `0`
+
+6. **Death Iterations** (`death_iterations`): This is the number of iterations for neuron death.
+   - Argument: `-dits`
+   - Type: `int`
+   - Default: `1`
+
+7. **Pruning Iterations** (`pruning_iterations`): This is the number of iterations for synapse pruning.
+   - Argument: `-pits`
+   - Type: `int`
+   - Default: `0`
+
+8. **Death Method** (`death_method`): This is the method used for neuron death.
+   - Argument: `-dmet`
+   - Choices: `['in-degree', 'out-degree', 'degree', 'random']`
+   - Default: `in-degree`
+
+9. **Pruning Method** (`pruning_method`): This is the method used for synapse pruning.
+   - Argument: `-pmet`
+   - Choices: `['hebbian-approx', 'inv-hebbian-approx', 'random']`
+   - Default: `hebbian-approx`
+
+10. **C_R** (`c_R`): This is a parameter for the computational model, often related to synaptic strength or connectivity.
+    - Argument: `-r`
+    - Type: `float`
+    - Default: `1.0 / 3.0`
+
+11. **C_A** (`c_A`): This is another parameter for the computational model, possibly related to activity or adaptation.
+    - Argument: `-a`
+    - Type: `float`
+    - Default: `0.01`
+
+12. **C_K** (`c_K`): This is another parameter, possibly related to a constant in the model.
+    - Argument: `-k`
+    - Type: `float`
+    - Default: `0.2`
+
+13. **Feed Forward** (`feed_forward`): This parameter may influence the feedforward connections in the network.
+    - Argument: `-ff`
+    - Type: `float`
+    - Default: `1`
+
+14. **Synaptic Reach** (`synaptic_reach`): This is the reach or range of synapses.
+    - Argument: `-sr`
+    - Type: `int`
+    - Default: `10000`
+
+These parameters define the configuration of the network and the rules for neuron death and synapse pruning within the computational model.
+
+# Usage of the analysis toolbox: 
+
+To use this the analysis toolbox (Mota_CNtoolbox.py), you will need the path of the folder where you want to export the results and the path for the folder called 50k or 100k (neuronal densities of your network) which contains the folders Sim 1 to Sim X with your simulations, each of which will have an "Edges" folder inside containing *.edges files.
+
+# Toolbox for relevant metric-extraction from biologically inspired complex networks
 
 # Modules and Functions
 
@@ -22,7 +101,7 @@ Toolbox for relevant metric-extraction from biologically inspired complex networ
 
 def analyse_all(allnets, exportpath, **datapath):
     """ 
-    Runs the analysis for the networks modeled at 50k neurons density and exports results.
+    Runs the analysis for the networks modelled at 50k neuron density and exports results.
     This function initiates all the threads and runs the analysis in parallel for the same network.
     The .join() function guarantees that all threads will finish at the same time.
 
