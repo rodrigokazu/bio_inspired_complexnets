@@ -864,9 +864,7 @@ def write_metrics(metric, exportpath, name, label):
 # Data visualisation #
 # ----------------------------------------------------------------------------------------------------------------- #
 
-def plot_ALL_analysis():
-
-    return 0
+def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, **datapath):
 
     """ Plots the analysis for the networks modelled at 50k neurons density and export results;
         This function initiates all the threads and run the analysis in parallel for the same network;
@@ -885,32 +883,27 @@ def plot_ALL_analysis():
 
           Overlayed plots.
 
-   
+   """
 
     t1 = threading.Thread(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath))
-    t2 = threading.Thread(target=parallel_averagepaths, args=(allnets, exportpath))
-    # t3 = threading.Thread(target=parallel_giantcomponents, args=(allnets, exportpath))
-    t4 = threading.Thread(target=parallel_clusters, args=(allnets, exportpath))
+    t2 = threading.Thread(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
+    t3 = threading.Thread(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
+    t4 = threading.Thread(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
+    t5 = threading.Thread(target=plot_alpha_D, args=(datapath, exportpath))
+
 
     t1.start()
     t2.start()
-    # t3.start()
+    t3.start()
     t4.start()
+    t5.start()
 
     t1.join()
     t2.join()
-    # t3.join()
+    t3.join()
     t4.join()
+    t5.join()
 
-    to_overlay = ['Sim 1x', 'Sim 2x', "Sim 6x"]
-    legend = ["Our model", "Random Death", "Random Pruning"]
-    color = {"Sim 6x": "r", "Sim 2x": [1.0000, 0.4980, 0.], "Sim 1x": "b"}
-
-    # to_overlay = ['Sim 8x', 'Sim 7x', 'Sim 1x']  # FF
-    # legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
-    # sns.set_palette("Blues_r")  # FF
-
-"""
 
 def plot_alpha_D(datapath, exportpath):
 
@@ -927,6 +920,8 @@ def plot_alpha_D(datapath, exportpath):
           Plots of alphas vs Ds
 
    """
+
+    datapath = datapath + "Alpha_D.pkl"
 
     with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
@@ -1318,6 +1313,65 @@ def plot_degree_distribution_scatter(allnets, exportpath):
                 gc.collect()
 
 
+def plot_degree_distribution_ECDF(allnets, exportpath):
+
+    """ ECDF plots of the degree distributions
+
+         Arguments:
+
+                   allnets(list): List of networks generated with network_acquisition()
+                   exportpath(str): Path to export the figures
+
+         Returns:
+
+            Plots of degree distributions
+
+     """
+
+    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
+
+        for nets in allnets[Sim]:
+
+            if os.path.getsize(nets) > 0:
+
+                net = igraph.Graph.Read(nets)
+                dd = net.degree()
+
+                # get title
+                t = network_labelling(netpath=nets)[0]
+
+                print(f'---------------[[PLOTTING {t}]]---------------')
+
+                fig = plt.figure(figsize=(5, 5), dpi=500)
+
+                sns.set_style("ticks")
+
+                sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                                     "lines.linewidth": 2, "xtick.labelsize": 8,
+                                                     "ytick.labelsize": 8})
+
+                # plots data
+                ax = sns.ecdfplot(data=np.bincount(dd))
+
+                ax.set(yscale="log", xscale="log", ylim=[10 ** -0.5, 10 ** 0.5], xlim=[10 ** -0.2, 10 ** 4])
+
+                # sets labels
+                ax.set_title(str(Sim) + " " + t)
+                ax.set_ylabel("Frequency")
+                ax.set_xlabel("Degree")
+
+                # save to file
+                if not os.path.exists(exportpath + "Degree_Dist"):  # creates export directory
+
+                    os.makedirs(exportpath + "Degree_Dist")
+
+                plt.savefig(exportpath + "Degree_Dist/" + str(Sim) + "_" + t + 'ECDF.png', bbox_inches='tight')
+                plt.close(fig)
+
+                del net
+                gc.collect()
+
+
 def plot_degree_distribution_overlayedscats(allnets, exportpath, to_overlay, legend, color):
 
     """ Function to plot overlayed scatter plots of degree distribuitions of three different conditions of the
@@ -1404,7 +1458,7 @@ def plot_degree_distribution_overlayedscats(allnets, exportpath, to_overlay, leg
         gc.collect()
 
 
-def plot_averagepath_lineplot(exportpath, datapath):
+def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
 
     """ Function to plot overlayed progresion of average path length of three different conditions of the Mota's Model
 
@@ -1421,12 +1475,11 @@ def plot_averagepath_lineplot(exportpath, datapath):
 
       """
 
-    #to_overlay = ['Sim 1', 'Sim 2', 'Sim 6'] # Model conditions
-    #legend = ["Mota's model", "Random Death", "Random Pruning"] # Model conditions
-    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
-    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
-    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
-    sns.set_palette("Blues_r")  # FF
+    to_overlay = to_overlay
+    legend = legend
+    color = color
+
+    datapath = datapath + "averagepaths.pkl"
 
     with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
@@ -1491,7 +1544,7 @@ def plot_averagepath_lineplot(exportpath, datapath):
     return 0
 
 
-def plot_clustering_lineplot(exportpath, datapath):
+def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
 
     """ Function to plot overlayed progression of the clustering coefficient of three different conditions of the Mota's Model
 
@@ -1507,13 +1560,11 @@ def plot_clustering_lineplot(exportpath, datapath):
              Plots of degree distributions
 
       """
+    to_overlay = to_overlay
+    legend = legend
+    color = color
 
-    #to_overlay = ['Sim 1', 'Sim 2', 'Sim 6'] # Model conditions
-    #legend = ["Mota's model", "Random Death", "Random Pruning"] # Model conditions
-    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
-    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1'] # FF
-    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
-    sns.set_palette("Blues_r")  # FF
+    datapath = datapath + "clustering.pkl"
 
     with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 
@@ -1659,14 +1710,11 @@ def plot_GC_overlayed(datapath, exportpath):
     return 0
 
 
-def plot_pruningrate(datapath, exportpath):
+def plot_pruningrate(color, datapath, exportpath, legend, to_overlay):
 
-    #to_overlay = ['Sim 1', 'Sim 2']  # Model conditions, 'Sim 6'
-    #legend = ["Mota's model", "Random Death"]  # Model conditions , "Random Pruning"
-    #color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
-    to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
-    legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
-    sns.set_palette("Blues_r")  # FF
+    to_overlay = to_overlay
+    legend = legend
+    color = color
 
     fig = plt.figure(figsize=(5, 5), dpi=500)
 
@@ -1674,6 +1722,7 @@ def plot_pruningrate(datapath, exportpath):
     sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
+    datapath = datapath + "NeuN_Syn.pkl"
 
     with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
 

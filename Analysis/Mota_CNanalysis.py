@@ -19,16 +19,7 @@
 
 # ----------------------------------------------------------------------------------------------------------------- #
 
-import os
-import sys
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
-
 import Mota_CNtoolbox
-print(Mota_CNtoolbox.__file__)
-
-
 
 """
 # Linux Paths #
@@ -49,8 +40,17 @@ dbexport = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\comple
 datapath = ("C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\complexnets\\Analysis_2023\\50k_nets"
             "\\GC.pkl")
 exportkeynets = "C:\\Users\\me1rss\\Desktop\\keynets\\"
-
 analysis2024 = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\complexnets\\Analysis_2024\\"
+
+# Key arguments for plotting and analysis #
+
+to_overlay = ['Sim 1x', 'Sim 2x', "Sim 6x"]
+legend = ["Our model", "Random Death", "Random Pruning"]
+color = {"Sim 6x": "r", "Sim 2x": [1.0000, 0.4980, 0.], "Sim 1x": "b"}
+
+# to_overlay = ['Sim 8x', 'Sim 7x', 'Sim 1x']  # FF
+# legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+# sns.set_palette("Blues_r")  # FF
 
 
 paths =Mota_CNtoolbox.network_density_paths(main_path)
@@ -61,6 +61,6 @@ keynets = Mota_CNtoolbox.network_acquisition(paths[2])  # For reference
 
 #Mota_CNtoolbox.analyse_all(allnets=keynets, exportpath=exportkeynets)
 
-Mota_CNtoolbox.plot_degree_distribution_overlayedscats(allnets=keynets, exportpath=analysis2024)
+Mota_CNtoolbox.plot_degree_distribution_ECDF(allnets=keynets, exportpath=analysis2024)
 
 
