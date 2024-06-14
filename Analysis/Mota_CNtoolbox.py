@@ -885,7 +885,7 @@ def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, **datapath
 
    """
 
-    t1 = threading.Thread(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath))
+    t1 = threading.Thread(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
     t2 = threading.Thread(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
     t3 = threading.Thread(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     t4 = threading.Thread(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
@@ -921,9 +921,9 @@ def plot_alpha_D(datapath, exportpath):
 
    """
 
-    datapath = datapath + "Alpha_D.pkl"
+    data_path = datapath["datapath"] + "Alpha_D.pkl"
 
-    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         fits = pickle.load(fp)
 
@@ -1479,9 +1479,9 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
     legend = legend
     color = color
 
-    datapath = datapath + "averagepaths.pkl"
+    data_path = datapath["datapath"] + "averagepaths.pkl"
 
-    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         averagepaths = pickle.load(fp)
 
@@ -1564,9 +1564,9 @@ def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
     legend = legend
     color = color
 
-    datapath = datapath + "clustering.pkl"
+    data_path = datapath["datapath"] + "clustering.pkl"
 
-    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         clustering = pickle.load(fp)
 
@@ -1722,9 +1722,9 @@ def plot_pruningrate(color, datapath, exportpath, legend, to_overlay):
     sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
-    datapath = datapath + "NeuN_Syn.pkl"
+    data_path = datapath["datapath"] + "NeuN_Syn.pkl"
 
-    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
+    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         NeuN_Syn = pickle.load(fp)
 
