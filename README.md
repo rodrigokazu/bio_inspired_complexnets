@@ -1,4 +1,7 @@
-#  Neural Pathways Laboratory Wellcome Sanger Institute & Cambridge Neuroscience in collaboration with the University of Sheffield and the University of Brazil (Federal University of Rio de Janeiro)
+#  Neural Pathways & metaBIO Labs
+(http://neuralpathways.uk & https://metabio.netlify.app/)
+
+# Wellcome Sanger Institute & Cambridge Neuroscience in collaboration with the Federal University of Rio de Janeiro
 
 ”Sculpting is easy.  You just chip away everything that does not look like David.” Michelangelo  (attributed),  about  the  making  of  his  masterpiece David
 
