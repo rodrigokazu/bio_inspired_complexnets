@@ -63,17 +63,22 @@ def analyse_all(allnets, exportpath, **datapath):
     t2 = threading.Thread(target=parallel_averagepaths, args=(allnets, exportpath))
     #t3 = threading.Thread(target=parallel_giantcomponents, args=(allnets, exportpath))
     t4 = threading.Thread(target=parallel_clusters, args=(allnets, exportpath))
+    t5 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
+    t6 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
 
     t1.start()
     t2.start()
     #t3.start()
     t4.start()
+    t5.start()
+    t6.start()
 
     t1.join()
     t2.join()
     #t3.join()
     t4.join()
-
+    t5.join()
+    t6.join()
 
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
@@ -294,7 +299,7 @@ def parallel_averagepaths(allnets, exportpath):
                 del net
                 gc.collect()
 
-        #write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
+    write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
 
     with open('averagepaths.pkl', 'wb') as fp:
 
@@ -362,7 +367,7 @@ def parallel_clusters(allnets, exportpath):
                 del net
                 gc.collect()
 
-#        write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
+    write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
 
     with open('clustering.pkl', 'wb') as fp:
 
@@ -450,7 +455,6 @@ def parallel_fitnet(allnets, exportpath):
                 label = network_labelling(nets)
 
                 print(f'Computing fits for {nets}')
-                print(f"[Calculating fits on thread number {threading.current_thread()}")
 
                 alpha_D = fit_net(label=label, nets=nets, exportpath=exportpath, Sim=Sim, save_graphs=False)
 
@@ -843,7 +847,7 @@ def write_metrics(metric, exportpath, name, label):
 
          Arguments:
 
-             averagepath(list): Dataset containing the average path length for the networks analysed
+             averagepath(list): Dataset for the networks analysed
 
        Returns:
 
@@ -862,6 +866,53 @@ def write_metrics(metric, exportpath, name, label):
 # Data visualisation #
 # ----------------------------------------------------------------------------------------------------------------- #
 
+def plot_ALL_analysis():
+
+    return 0
+
+    """ Plots the analysis for the networks modelled at 50k neurons density and export results;
+        This function initiates all the threads and run the analysis in parallel for the same network;
+        The .join() function guarantees that all threads will finish at the same time
+
+         Arguments:
+
+            allnets(list): Path for the networks  generated with the network_acquisition() function of this toolbox for
+            the overlayed scats functiom.
+             datapath(str): Path for a folder where all the analyses generated with this toolbox are saved as *.pkl
+             to_overlay(list): List of simulations to be plotted in the "Sim X" convention
+             legend (list): List of words to compose the legend of the figures
+             color (dict): Dict of colours for the plot with the "Sim X" convention as keys
+
+          Returns:
+
+          Overlayed plots.
+
+   
+
+    t1 = threading.Thread(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath))
+    t2 = threading.Thread(target=parallel_averagepaths, args=(allnets, exportpath))
+    # t3 = threading.Thread(target=parallel_giantcomponents, args=(allnets, exportpath))
+    t4 = threading.Thread(target=parallel_clusters, args=(allnets, exportpath))
+
+    t1.start()
+    t2.start()
+    # t3.start()
+    t4.start()
+
+    t1.join()
+    t2.join()
+    # t3.join()
+    t4.join()
+
+    to_overlay = ['Sim 1x', 'Sim 2x', "Sim 6x"]
+    legend = ["Mota's model", "Random Death", "Random Pruning"]
+    color = {"Sim 6x": "r", "Sim 2x": [1.0000, 0.4980, 0.], "Sim 1x": "b"}
+
+    # to_overlay = ['Sim 8x', 'Sim 7x', 'Sim 1x']  # FF
+    # legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
+    # sns.set_palette("Blues_r")  # FF
+
+"""
 
 def plot_alpha_D(datapath, exportpath):
 
@@ -1269,7 +1320,7 @@ def plot_degree_distribution_scatter(allnets, exportpath):
                 gc.collect()
 
 
-def plot_degree_distribution_overlayedscats(allnets, exportpath):
+def plot_degree_distribution_overlayedscats(allnets, exportpath, to_overlay, legend, color):
 
     """ Function to plot overlayed scatter plots of degree distribuitions of three different conditions of the
      Mota's Model
@@ -1278,6 +1329,9 @@ def plot_degree_distribution_overlayedscats(allnets, exportpath):
 
              allnets(list): List of networks generated with network_acquisition()
              exportpath(str): Path to export the figures
+             to_overlay(list): List of simulations to be plotted in the "Sim X" convention
+             legend (list): List of words to compose the legend of the figures
+             color (dict): Dict of colours for the plot with the "Sim X" convention as keys
 
        Returns:
 
@@ -1285,13 +1339,9 @@ def plot_degree_distribution_overlayedscats(allnets, exportpath):
 
    """
 
-    to_overlay = ['Sim 1x', 'Sim 2x', "Sim 6x"]
-    legend = ["Mota's model", "Random Death", "Random Pruning"]
-    color = {"Sim 6x": "r", "Sim 2x": [1.0000, 0.4980, 0.], "Sim 1x": "b"}
-
-    #to_overlay = ['Sim 8x', 'Sim 7x', 'Sim 1x']  # FF
-    #legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
-    #sns.set_palette("Blues_r")  # FF
+    to_overlay = to_overlay
+    legend = legend
+    color = color
 
     Sim = 0
 
@@ -1679,6 +1729,7 @@ def plot_pruningrate(datapath, exportpath):
     gc.collect()
 
     return 0
+
 
 def plot_R_overlayed(exportpath, datapath):
 
