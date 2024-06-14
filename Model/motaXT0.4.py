@@ -75,7 +75,7 @@ def main():
 
     args = vars(parser.parse_args())
 
-    print args
+    print (args)
 
     neurons_per_module = args['nn']
     synapses_per_neuron = args['syn']
@@ -102,7 +102,7 @@ def main():
 
     save_parameters(args, output_folder)
 
-    print "Creating meta-network ..."
+    print ("Creating meta-network ...")
 
     # Creates the meta-network
     if meta == 'random':
@@ -136,7 +136,7 @@ def main():
             meta_network.add_vertex(id=i)
         for i in range(0,number_of_modules):
             meta_network.add_edge(i,(i+1) % number_of_modules)
-        print meta_network
+        print (meta_network)
     elif meta == 'file':
         i = 0
         # Load an arbitrary meta-network from a file
@@ -150,7 +150,7 @@ def main():
     for i in range(0,number_of_modules):
         meta_network.vs.select(i)['id'] = i
     
-    print "Creating whole network ..."
+    print ("Creating whole network ...")
 
     # Creates the whole network, nodes have IDs set by me (nid) and
     # are allocated to their modules, using a vertex attribute (module)
@@ -165,13 +165,13 @@ def main():
     new_edges = []
     for i in range(0, total_synapses):
         if i % 1000 == 0:
-            print str(i) + " synapses added ..."
+            print (str(i) + " synapses added ...")
         new_edges.append(get_new_random_edge())
 
     net.add_edges(new_edges)
 
 
-    print "Death iterations ..."
+    print ("Death iterations ...")
 
     ### Death iterations
 
@@ -209,7 +209,7 @@ def main():
         
         net.add_edges(new_edges)
 
-        print "Death " + str(it) + ": " + str(len(to_remove))
+        print ("Death " + str(it) + ": " + str(len(to_remove)))
 
         # Saves the network
         if it % save_freq == 0:
@@ -218,7 +218,7 @@ def main():
             #if save_fitness:
             #    save_node_fitness_to_file(fitness_list, where=output_folder)
 
-    print "Pruning iterations ..."
+    print ("Pruning iterations ...")
 
     ### Pruning iterations
 
@@ -239,7 +239,7 @@ def main():
         # Remove synapses in the list
         net.delete_edges(to_remove)
 
-        print "Pruning " + str(it) + ": " + str(len(to_remove))
+        print ("Pruning " + str(it) + ": " + str(len(to_remove)))
 
         # Saves the network
         if it % save_freq == 0:
@@ -295,7 +295,7 @@ def get_new_random_edge():
         try:
             target_module_id = random.choice(this_module.neighbors())['id']
         except:
-            print "Meta network has isolated vertex:" + str(this_module['id'])
+            print ("Meta network has isolated vertex:" + str(this_module['id']))
             raise
         
         if forward_edge:
