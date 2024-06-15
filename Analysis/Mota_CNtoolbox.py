@@ -301,7 +301,9 @@ def parallel_averagepaths(allnets, exportpath):
 
     write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
 
-    with open('averagepaths.pkl', 'wb') as fp:
+    export = exportpath + 'averagepaths.pkl'
+
+    with open(export, 'wb') as fp:
 
         pickle.dump(averagepaths, fp)
 
@@ -369,7 +371,9 @@ def parallel_clusters(allnets, exportpath):
 
     write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
 
-    with open('clustering.pkl', 'wb') as fp:
+    export = exportpath + 'clustering.pkl'
+
+    with open(export, 'wb') as fp:
 
         pickle.dump(averagecluster, fp)
 
@@ -465,7 +469,9 @@ def parallel_fitnet(allnets, exportpath):
 
                 gc.collect()
 
-        with open('Alpha_D.pkl', 'wb') as fp:
+        export = exportpath + 'Alpha_D.pkl'
+
+        with open(export, 'wb') as fp:
 
             pickle.dump(fits, fp)
 
@@ -864,45 +870,45 @@ def write_metrics(metric, exportpath, name, label):
 # Data visualisation #
 # ----------------------------------------------------------------------------------------------------------------- #
 
-def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, **datapath):
+def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
 
-    """ Plots the analysis for the networks modelled at 50k neurons density and export results;
-        This function initiates all the threads and run the analysis in parallel for the same network;
-        The .join() function guarantees that all threads will finish at the same time
+    """
+    Plots the analysis for the networks modelled at 50k neurons density and export results;
+    This function initiates all the threads and runs the analysis in parallel for the same network;
+    The .join() function guarantees that all threads will finish at the same time
 
-         Arguments:
+    Arguments:
+        allnets(list): Path for the networks generated with the network_acquisition() function of this toolbox for
+        the overlayed scats function.
+        datapath(str): Path for a folder where all the analyses generated with this toolbox are saved as *.pkl
+        to_overlay(list): List of simulations to be plotted in the "Sim X" convention
+        legend (list): List of words to compose the legend of the figures
+        color (dict): Dict of colours for the plot with the "Sim X" convention as keys
 
-            allnets(list): Path for the networks  generated with the network_acquisition() function of this toolbox for
-            the overlayed scats functiom.
-             datapath(str): Path for a folder where all the analyses generated with this toolbox are saved as *.pkl
-             to_overlay(list): List of simulations to be plotted in the "Sim X" convention
-             legend (list): List of words to compose the legend of the figures
-             color (dict): Dict of colours for the plot with the "Sim X" convention as keys
-
-          Returns:
-
-          Overlayed plots.
-
-   """
+    Returns:
+        Overlayed plots.
+    """
 
     t1 = threading.Thread(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
     t2 = threading.Thread(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
     t3 = threading.Thread(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     t4 = threading.Thread(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     t5 = threading.Thread(target=plot_alpha_D, args=(datapath, exportpath))
-
+    t6 = threading.Thread(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
 
     t1.start()
     t2.start()
     t3.start()
     t4.start()
     t5.start()
+    t6.start()
 
     t1.join()
     t2.join()
     t3.join()
     t4.join()
     t5.join()
+    t6.join()
 
 
 def plot_alpha_D(datapath, exportpath):
@@ -921,7 +927,7 @@ def plot_alpha_D(datapath, exportpath):
 
    """
 
-    data_path = datapath["datapath"] + "Alpha_D.pkl"
+    data_path = datapath + "Alpha_D.pkl"
 
     with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
@@ -1479,7 +1485,7 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
     legend = legend
     color = color
 
-    data_path = datapath["datapath"] + "averagepaths.pkl"
+    data_path = datapath + "averagepaths.pkl"
 
     with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
@@ -1564,7 +1570,7 @@ def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
     legend = legend
     color = color
 
-    data_path = datapath["datapath"] + "clustering.pkl"
+    data_path = datapath + "clustering.pkl"
 
     with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
@@ -1722,7 +1728,7 @@ def plot_pruningrate(color, datapath, exportpath, legend, to_overlay):
     sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                          "lines.linewidth": 2, "xtick.labelsize": 8,
                                          "ytick.labelsize": 8})
-    data_path = datapath["datapath"] + "NeuN_Syn.pkl"
+    data_path = datapath + "NeuN_Syn.pkl"
 
     with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
@@ -1935,7 +1941,7 @@ def plot_synaptic_fraction(NeuN_Syn, exportpath):
     return 0
 
 
-def plot_synaptic_fraction_overlayed(datapath, exportpath):
+def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_overlay):
 
     """ Function to plot overlayed curves of synaptic preservation of three different conditions of the Mota's Model
 
@@ -1951,20 +1957,18 @@ def plot_synaptic_fraction_overlayed(datapath, exportpath):
 
    """
 
+    to_overlay = to_overlay
+    legend = legend
+    color = color
 
-    with open(datapath, 'rb') as fp:  # The ** argument is imported as a dictionary
+    data_path = datapath + "averagepaths.pkl"
+
+    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
 
         NeuN_Syn = pickle.load(fp)
 
-    to_overlay = ['Sim 1', 'Sim 2', 'Sim 6']  # Model conditions
-    legend = ["Mota's model", "Random Death", "Random Pruning"]  # Model conditions
-    color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
-    # to_overlay = ['Sim 8', 'Sim 7', 'Sim 1']  # FF
-    # legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
-    # sns.set_palette("Blues_r")  # FF
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
-
 
     for Sim in to_overlay:
 
