@@ -243,143 +243,117 @@ def network_density_paths(main_path):
 
 
 def parallel_averagepaths(allnets, exportpath):
-
     """ Computes the average path length for a list of networks generated with network_acquisition()
 
-      Arguments:
+        Arguments:
+            allnets (list): List of networks generated with network_acquisition()
+            exportpath (str): Path to export the dataset as a csv
 
-          allnets(list): List of networks generated with network_acquisition()
-          exportpath(str): Path to export the dataset as a csv
-
-           Returns:
-
+        Returns:
             Average path exported as csv
+    """
 
-        """
+    averagepaths = []
 
-    averagepaths = dict()
+    for Sim in allnets:
 
-    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
-
-        averagepaths[Sim] = dict()
-        averagepaths[Sim+" iterations"] = list()
-        averagepaths[Sim]["it_d"] = list()
-        averagepaths[Sim]["it_p"] = list()
-        averagepaths[Sim]["ap_d"] = list()
-        averagepaths[Sim]["ap_p"] = list()
-
-        #print(f'Computing path lenght for {Sim}')
         print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
 
         for nets in allnets[Sim]:
-
             if os.path.getsize(nets) > 0:
-
                 net = igraph.Graph.Read(nets)
-
                 path = net.average_path_length()
+
                 print(f'The ASPL for simulation {Sim} network {nets} is {path}')
 
                 label = network_labelling(nets)
-                name = "AveragePath.csv"
 
-                averagepaths[Sim][label[0]] = path
-                averagepaths[Sim + " iterations"].append(label[0])
+                record = {
+                    "Simulation": Sim,
+                    "Network": nets,
+                    "Label": label[0],
+                    "Iteration": int(label[1]),
+                    "AveragePathLength": path
+                }
 
-                if re.search(r'(pruning|death)', label[0])[1] == 'death':
+                if re.search(r'(pruning|death)', label[0]):
+                    if 'death' in label[0]:
+                        record["Type"] = "death"
+                    else:
+                        record["Type"] = "pruning"
 
-                    averagepaths[Sim]["it_d"].append(int(label[1]))
-                    averagepaths[Sim]["ap_d"].append(path)
-
-                else:
-
-                    averagepaths[Sim]["it_p"].append(int(label[1]))
-                    averagepaths[Sim]["ap_p"].append(path)
+                averagepaths.append(record)
 
                 del net
                 gc.collect()
 
-    write_metrics(metric=averagepaths, exportpath=exportpath, name=name, label=label)
+    df = pd.DataFrame(averagepaths)
+    df.to_csv(os.path.join(exportpath, 'AveragePath.csv'), index=False)
 
-    export = exportpath + 'averagepaths.pkl'
-
-    with open(export, 'wb') as fp:
-
+    with open(os.path.join(exportpath, 'averagepaths.pkl'), 'wb') as fp:
         pickle.dump(averagepaths, fp)
 
-        print('Average paths saved successfully to file')  # saving it to a file because of time required to run
+    print('Average paths saved successfully to file')
 
     return averagepaths
 
 
 def parallel_clusters(allnets, exportpath):
-
     """ Computes the clustering coefficient for a list of networks generated with network_acquisition()
 
-                 Arguments:
+        Arguments:
+            allnets (list): List of networks generated with network_acquisition()
+            exportpath (str): Path to export the dataset as a csv
 
-                     allnets(list): List of networks generated with network_acquisition()
-                     exportpath(str): Path to export the dataset as a csv
+        Returns:
+            Clustering coefficients exported as csv
+    """
+    averagecluster = []
 
-               Returns:
-
-                Clustering coefficients exported as csv
-
-   """
-
-    averagecluster = dict()
-
-    for Sim in allnets:  # Fifty nets is a dict with Sims as keys
-
-        averagecluster[Sim] = dict()
-        averagecluster[Sim + " iterations"] = list()
-        averagecluster[Sim]["it_d"] = list()
-        averagecluster[Sim]["it_p"] = list()
-        averagecluster[Sim]["c_d"] = list()
-        averagecluster[Sim]["c_p"] = list()
+    for Sim in allnets:
 
         for nets in allnets[Sim]:
 
             if os.path.getsize(nets) > 0:
 
                 net = igraph.Graph.Read(nets)
-
                 print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
-                clustering = net.transitivity_undirected()  # Target is what's running on the new thread
+                clustering = net.transitivity_undirected()
                 print(f'The clustering coefficient for simulation {Sim} network {nets} is {clustering}')
 
                 label = network_labelling(netpath=nets)
-                name = "AverageClustering.csv"
 
-                averagecluster[Sim][label[0]] = clustering
+                record = {
+                    "Simulation": Sim,
+                    "Network": nets,
+                    "Label": label[0],
+                    "Iteration": int(label[1]),
+                    "Clustering": clustering
+                }
 
-                averagecluster[Sim][label[0]] = clustering
-                averagecluster[Sim + " iterations"].append(label[0])
+                if re.search(r'(pruning|death)', label[0]):
 
-                if re.search(r'(pruning|death)', label[0])[1] == 'death':
+                    if 'death' in label[0]:
+                        record["Type"] = "death"
+                    else:
+                        record["Type"] = "pruning"
 
-                    averagecluster[Sim]["it_d"].append(int(label[1]))
-                    averagecluster[Sim]["c_d"].append(clustering)
-
-                else:
-
-                    averagecluster[Sim]["it_p"].append(int(label[1]))
-                    averagecluster[Sim]["c_p"].append(clustering)
+                averagecluster.append(record)
 
                 del net
                 gc.collect()
 
-    write_metrics(metric=averagecluster, exportpath=exportpath, name=name, label=label)
+    df = pd.DataFrame(averagecluster)
+    df.to_csv(os.path.join(exportpath, 'AverageClustering.csv'), index=False)
 
-    export = exportpath + 'clustering.pkl'
-
-    with open(export, 'wb') as fp:
-
+    with open(os.path.join(exportpath, 'clustering.pkl'), 'wb') as fp:
         pickle.dump(averagecluster, fp)
 
-        print('Clustering coefficients saved successfully to file')  # saving it because of time required to run
-
+    print('Clustering coefficients saved successfully to file')
     return averagecluster
+
+
+# Ensure you have implemented the network_labelling function and write_metrics function if needed.
 
 
 def parallel_density(allnets, exportpath):
@@ -1108,7 +1082,7 @@ def plot_alpha_D(datapath, exportpath):
         ax = sns.lineplot(x=overall_it, y=sorted_alpha, markers=True, linewidth=4, color='r', label="Alpha")
         ax = sns.lineplot(x=overall_it, y=sorted_D, markers=True, linewidth=4, color='b', label="Distance")
 
-        ax.set(ylim=[0, 2])
+        ax.set(ylim=[0, 3])
         ax.set_ylabel("Measure")
         ax.set_xlabel("Iteration")
 
