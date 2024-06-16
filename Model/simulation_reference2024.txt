@@ -38,3 +38,14 @@ Sim 1z
 
 python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 10000 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1z"
 
+Sim 1beta
+
+python "motaXT1.0.py" -nn 50000 -syn 1000 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 1000 -pits 10000 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1beta"
+
+---
+LIF
+---
+
+Sim 1LIF
+
+python "motaLIF0.1.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 5000 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1LIF"

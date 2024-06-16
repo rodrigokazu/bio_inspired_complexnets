@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+import brian2 as b2
+import numpy as np
+import matplotlib.pyplot as plt
 from igraph import *
 import argparse
 import random
@@ -150,6 +152,76 @@ def main():
 
     net.add_edges(new_edges)
 
+    for it in range(0, max(death_iterations, pruning_iterations)):
+        print(f"Simulation iteration {it} ...")
+        simulate_neuronal_activity(it, output_folder)
+
+        if it < death_iterations:
+            perform_death_iteration(it, save_freq, save_net, output_folder)
+        if it < pruning_iterations:
+            perform_pruning_iteration(it, save_freq, save_net, output_folder)
+
+    s = time.time()
+    main()
+    e = time.time()
+    print(f"Execution time: {e - s} seconds")
+
+def simulate_neuronal_activity(iteration, output_folder):
+    print("Simulating neuronal activity ...")
+
+    duration = 10 * b2.second
+
+    # Parameters for LIF neurons
+    tau = 10 * b2.ms
+    vr = -70 * b2.mV
+    vt = -50 * b2.mV
+    El = -65 * b2.mV
+    Rm = 10 * b2.Mohm
+    v_reset = -65 * b2.mV
+    v_threshold = -50 * b2.mV
+
+    eqs = '''
+    dv/dt = (El - v + Rm * I) / tau : volt
+    I : amp
+    '''
+
+    G = b2.NeuronGroup(total_neurons, model=eqs, threshold='v>v_threshold', reset='v=v_reset', method='linear')
+    G.v = vr
+
+    # Create synapses and STDP
+    S = b2.Synapses(G, G, on_pre='v_post += 0.2*mV')
+    for e in net.es:
+        S.connect(i=e.source, j=e.target)
+
+    # Spike-time dependent plasticity (STDP)
+    stdp = b2.STDP(S, tau_pre=20*b2.ms, tau_post=20*b2.ms, A_pre=0.01, A_post=-0.01)
+
+    # Run the simulation
+    M = b2.SpikeMonitor(G)
+    b2.run(duration)
+
+    # Get spike times and neuron indices
+    spike_times = M.t / b2.ms
+    neuron_indices = M.i
+
+    # Identify the 10% most active neurons
+    spike_counts = np.bincount(neuron_indices)
+    most_active_neurons = np.argsort(spike_counts)[-int(0.1*total_neurons):]
+
+    # Generate and save raster plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(spike_times, neuron_indices, '.k')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Neuron index')
+    plt.title('Raster plot of neuronal activity')
+    plt.savefig(os.path.join(output_folder, f'raster_plot_{iteration}.png'))
+    plt.close()
+
+    # Update network based on STDP
+    for i, j in zip(S.i, S.j):
+        net.es[net.get_eid(i, j)]['weight'] = S.w[i, j]
+
+def perform_death_iteration(it, save_freq, save_net, output_folder):
     print("Death iterations ...")
 
     mean_indegree = mean(net.vs.indegree())
@@ -159,30 +231,30 @@ def main():
     degrees = net.degree()
 
     with Pool(processes=cpu_count()) as pool:
-        for it in range(0, death_iterations):
-            to_remove = pool.map(death_worker, range(len(net.vs)))
+        to_remove = pool.map(death_worker, range(len(net.vs)))
 
-            to_remove = [v for v in to_remove if v is not None]
+        to_remove = [v for v in to_remove if v is not None]
 
-            edges_to_remove = []
-            for v in to_remove:
-                for v2 in net.vs[v].successors():
-                    edges_to_remove.append((v, v2.index))
-                for v1 in net.vs[v].predecessors():
-                    edges_to_remove.append((v1.index, v))
+        edges_to_remove = []
+        for v in to_remove:
+            for v2 in net.vs[v].successors():
+                edges_to_remove.append((v, v2.index))
+            for v1 in net.vs[v].predecessors():
+                edges_to_remove.append((v1.index, v))
 
-            net.delete_edges(edges_to_remove)
+        net.delete_edges(edges_to_remove)
 
-            gap = total_synapses - len(net.es)
-            new_edges = pool.map(get_new_random_edge, range(gap))
-            net.add_edges(new_edges)
+        gap = total_synapses - len(net.es)
+        new_edges = pool.map(get_new_random_edge, range(gap))
+        net.add_edges(new_edges)
 
-            print(f"Death {it}: {len(to_remove)}")
+        print(f"Death {it}: {len(to_remove)}")
 
-            if it % save_freq == 0:
-                if save_net:
-                    save_network_to_file("death", it, where=output_folder)
+        if it % save_freq == 0:
+            if save_net:
+                save_network_to_file("death", it, where=output_folder)
 
+def perform_pruning_iteration(it, save_freq, save_net, output_folder):
     print("Pruning iterations ...")
 
     mean_indegree_sq = mean(net.vs.indegree()) ** 2
@@ -190,19 +262,17 @@ def main():
     indegrees = net.indegree()
 
     with Pool(processes=cpu_count()) as pool:
-        for it in range(0, pruning_iterations):
-            to_remove = pool.map(pruning_worker, range(len(net.es)))
+        to_remove = pool.map(pruning_worker, range(len(net.es)))
 
-            to_remove = [e for e in to_remove if e is not None]
+        to_remove = [e for e in to_remove if e is not None]
 
-            net.delete_edges(to_remove)
+        net.delete_edges(to_remove)
 
-            print(f"Pruning {it}: {len(to_remove)}")
+        print(f"Pruning {it}: {len(to_remove)}")
 
-            if it % save_freq == 0:
-                if save_net:
-                    save_network_to_file("pruning", it, where=output_folder)
-
+        if it % save_freq == 0:
+            if save_net:
+                save_network_to_file("pruning", it, where=output_folder)
 
 def death_worker(v_index):
     fitness = death_probability(v_index)
@@ -210,14 +280,12 @@ def death_worker(v_index):
         return v_index
     return None
 
-
 def pruning_worker(e_index):
     e = net.es[e_index]
     fitness = pruning_probability((e.source, e.target))
     if random.random() < fitness:
         return (e.source, e.target)
     return None
-
 
 def get_new_random_edge(dummy_arg=None):
     if feed_forward > 0 and random.random() < feed_forward:
@@ -275,7 +343,6 @@ def get_new_random_edge(dummy_arg=None):
 
     return (v1.index, v2.index)
 
-
 def death_probability(v_index):
     if death_method == 'degree':
         num = degrees[v_index]
@@ -292,7 +359,6 @@ def death_probability(v_index):
 
     return c_A * math.exp(-c_K * (num / den))
 
-
 def pruning_probability(e):
     i, j = e
 
@@ -308,13 +374,11 @@ def pruning_probability(e):
 
     return c_A * math.exp(-c_K * (num / den))
 
-
 def save_network_to_file(suffix="", it=0, where="."):
     if not os.path.exists(os.path.join(where, "Edges")):
         os.makedirs(os.path.join(where, "Edges"))
     fn = os.path.join(where, f"Edges/mota_net_{suffix}{it}.edges")
     net.write_edgelist(fn)
-
 
 def save_parameters(args, where="."):
     if not os.path.exists(where):
@@ -324,10 +388,129 @@ def save_parameters(args, where="."):
         for a in args:
             f.write(f"{a} = {args[a]}\n")
 
-
 def mean(numbers):
     return float(sum(numbers)) / max(len(numbers), 1)
 
+def simulate_neuronal_activity(iteration, output_folder):
+    print("Simulating neuronal activity ...")
+
+    duration = 10 * b2.second
+
+    # Parameters for LIF neurons
+    tau = 10 * b2.ms
+    vr = -70 * b2.mV
+    vt = -50 * b2.mV
+    El = -65 * b2.mV
+    Rm = 10 * b2.Mohm
+    v_reset = -65 * b2.mV
+    v_threshold = -50 * b2.mV
+
+    eqs = '''
+    dv/dt = (El - v + Rm * I) / tau : volt
+    I : amp
+    '''
+
+    G = b2.NeuronGroup(total_neurons, model=eqs, threshold='v>v_threshold', reset='v=v_reset', method='linear')
+    G.v = vr
+
+    # Create synapses and STDP
+    S = b2.Synapses(G, G, on_pre='v_post += 0.2*mV')
+    for e in net.es:
+        S.connect(i=e.source, j=e.target)
+
+    # Spike-time dependent plasticity (STDP)
+    stdp = b2.STDP(S, tau_pre=20*b2.ms, tau_post=20*b2.ms, A_pre=0.01, A_post=-0.01)
+
+    # Run the simulation
+    M = b2.SpikeMonitor(G)
+    b2.run(duration)
+
+    # Get spike times and neuron indices
+    spike_times = M.t / b2.ms
+    neuron_indices = M.i
+
+    # Identify the 10% most active neurons
+    spike_counts = np.bincount(neuron_indices)
+    most_active_neurons = np.argsort(spike_counts)[-int(0.1*total_neurons):]
+
+    # Generate and save raster plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(spike_times, neuron_indices, '.k')
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Neuron index')
+    plt.title('Raster plot of neuronal activity')
+    plt.savefig(os.path.join(output_folder, f'raster_plot_{iteration}.png'))
+    plt.close()
+
+    # Update network based on STDP
+    for i, j in zip(S.i, S.j):
+        net.es[net.get_eid(i, j)]['weight'] = S.w[i, j]
+
+def perform_death_iteration(it, save_freq, save_net, output_folder):
+    print("Death iterations ...")
+
+    mean_indegree = mean(net.vs.indegree())
+    mean_degree = mean(net.vs.degree())
+    outdegrees = net.outdegree()
+    indegrees = net.indegree()
+    degrees = net.degree()
+
+    with Pool(processes=cpu_count()) as pool:
+        to_remove = pool.map(death_worker, range(len(net.vs)))
+
+        to_remove = [v for v in to_remove if v is not None]
+
+        edges_to_remove = []
+        for v in to_remove:
+            for v2 in net.vs[v].successors():
+                edges_to_remove.append((v, v2.index))
+            for v1 in net.vs[v].predecessors():
+                edges_to_remove.append((v1.index, v))
+
+        net.delete_edges(edges_to_remove)
+
+        gap = total_synapses - len(net.es)
+        new_edges = pool.map(get_new_random_edge, range(gap))
+        net.add_edges(new_edges)
+
+        print(f"Death {it}: {len(to_remove)}")
+
+        if it % save_freq == 0:
+            if save_net:
+                save_network_to_file("death", it, where=output_folder)
+
+def perform_pruning_iteration(it, save_freq, save_net, output_folder):
+    print("Pruning iterations ...")
+
+    mean_indegree_sq = mean(net.vs.indegree()) ** 2
+    outdegrees = net.outdegree()
+    indegrees = net.indegree()
+
+    with Pool(processes=cpu_count()) as pool:
+        to_remove = pool.map(pruning_worker, range(len(net.es)))
+
+        to_remove = [e for e in to_remove if e is not None]
+
+        net.delete_edges(to_remove)
+
+        print(f"Pruning {it}: {len(to_remove)}")
+
+        if it % save_freq == 0:
+            if save_net:
+                save_network_to_file("pruning", it, where=output_folder)
+
+def death_worker(v_index):
+    fitness = death_probability(v_index)
+    if random.random() < fitness:
+        return v_index
+    return None
+
+def pruning_worker(e_index):
+    e = net.es[e_index]
+    fitness = pruning_probability((e.source, e.target))
+    if random.random() < fitness:
+        return (e.source, e.target)
+    return None
 
 if __name__ == "__main__":
     s = time.time()
