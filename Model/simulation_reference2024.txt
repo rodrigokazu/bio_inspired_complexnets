@@ -1,0 +1,40 @@
+Sim1x
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 2500 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1x"
+
+---
+
+Sim 1y
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 5000 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1y"
+
+Sim 1alpha
+
+python "motaXT0.6.py" -nn 50000 -syn 1000 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 1000 -pits 10000 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1alpha"
+
+Sim 2y
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 5000 -dmet "random" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 2y"
+
+Sim 6y
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 5000 -dmet "in-degree" -pmet "random" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 6y"
+
+Sim 7y
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 5000 -dmet "in-degree" -pmet "hebbian-approx" -ff 0.8 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 7y"
+
+Sim 8y
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 5000 -dmet "in-degree" -pmet "hebbian-approx" -ff 0.5 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 8y"
+
+---
+
+Sim 1w
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 7500 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1w"
+
+Sim 1z
+
+python "motaXT0.6.py" -nn 50000 -syn 100 -mn 1 -sr 50000 -meta "full" -metaargs 0 -dits 500 -pits 10000 -dmet "in-degree" -pmet "hebbian-approx" -ff 1.0 --no-cm --save-net --no-save-fitness --save-freq 50 -save-to "Sim 1z"
+

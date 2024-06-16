@@ -20,6 +20,7 @@
 # ----------------------------------------------------------------------------------------------------------------- #
 
 import Mota_CNtoolbox
+import time
 
 """
 # Linux Paths #
@@ -64,11 +65,16 @@ color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
 
 # Actual analysis #
 
-#Mota_CNtoolbox.analyse_all(allnets=keynets, exportpath=exportkeynets)
+if __name__ == '__main__':
+
+    start_time = time.time()
+    Mota_CNtoolbox.analyse_all(allnets=keynets, exportpath=exportkeynets)
+    end_time = time.time()
+
+    print(f"Multiprocessing time taken: {end_time - start_time} seconds")
 
 #Mota_CNtoolbox.plot_ALL_analysis(to_overlay=to_overlay, legend=legend, color=color, allnets=keynets, datapath=datapath,
                                  #exportpath=analysis2024)
 
-Mota_CNtoolbox.parallel_averagepaths(allnets=keynets, exportpath=exportkeynets)
 
 

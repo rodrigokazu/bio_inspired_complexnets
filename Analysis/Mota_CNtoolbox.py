@@ -15,6 +15,7 @@ import gc
 import igraph
 import numpy as np
 import matplotlib.pyplot as plt
+import multiprocessing
 import os
 import pandas as pd
 import pickle
@@ -42,43 +43,37 @@ import time
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
+
+
 def analyse_all(allnets, exportpath, **datapath):
 
-    """ Runs the analysis for the networks modelled at 50k neurons density and export results;
-        This function initiates all the threads and run the analysis in parallel for the same network;
-        The .join() function guarantees that all threads will finish at the same time
+    """ Runs the analysis for the networks modeled at 50k neurons density and export results;
+        This function initiates all the processes and runs the analysis in parallel for the same network;
+        The .join() function guarantees that all processes will finish at the same time
 
-         Arguments:
+        Arguments:
 
-             allnets(list): Path for the networks to be analysed generated with the network_acquisition() function
-              of this toolbox.
+            allnets(list): Path for the networks to be analyzed generated with the network_acquisition() function
+            of this toolbox.
 
-          Returns:
+        Returns:
 
-          Exported complex network statistics.
+        Exported complex network statistics.
+    """
 
-   """
+    processes = [
+        multiprocessing.Process(target=parallel_neun_syn_counts, args=(allnets, exportpath)),
+        multiprocessing.Process(target=parallel_averagepaths, args=(allnets, exportpath)),
+        multiprocessing.Process(target=parallel_clusters, args=(allnets, exportpath)),
+        multiprocessing.Process(target=parallel_fitnet, args=(allnets, exportpath)),
+        multiprocessing.Process(target=parallel_fitnet, args=(allnets, exportpath))
+    ]
 
-    t1 = threading.Thread(target=parallel_neun_syn_counts, args=(allnets, exportpath))
-    t2 = threading.Thread(target=parallel_averagepaths, args=(allnets, exportpath))
-    #t3 = threading.Thread(target=parallel_giantcomponents, args=(allnets, exportpath))
-    t4 = threading.Thread(target=parallel_clusters, args=(allnets, exportpath))
-    t5 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
-    t6 = threading.Thread(target=parallel_fitnet, args=(allnets, exportpath))
+    for process in processes:
+        process.start()
 
-    t1.start()
-    t2.start()
-    #t3.start()
-    t4.start()
-    t5.start()
-    t6.start()
-
-    t1.join()
-    t2.join()
-    #t3.join()
-    t4.join()
-    t5.join()
-    t6.join()
+    for process in processes:
+        process.join()
 
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
@@ -243,6 +238,7 @@ def network_density_paths(main_path):
 
 
 def parallel_averagepaths(allnets, exportpath):
+
     """ Computes the average path length for a list of networks generated with network_acquisition()
 
         Arguments:
@@ -257,10 +253,10 @@ def parallel_averagepaths(allnets, exportpath):
 
     for Sim in allnets:
 
-        print(f"[Calculating average path length on thread number ] {threading.current_thread()}")
-
         for nets in allnets[Sim]:
+
             if os.path.getsize(nets) > 0:
+
                 net = igraph.Graph.Read(nets)
                 path = net.average_path_length()
 
@@ -277,6 +273,7 @@ def parallel_averagepaths(allnets, exportpath):
                 }
 
                 if re.search(r'(pruning|death)', label[0]):
+
                     if 'death' in label[0]:
                         record["Type"] = "death"
                     else:
@@ -317,7 +314,6 @@ def parallel_clusters(allnets, exportpath):
             if os.path.getsize(nets) > 0:
 
                 net = igraph.Graph.Read(nets)
-                print(f"[Calculating transitivity on thread number ] {threading.current_thread()}")
                 clustering = net.transitivity_undirected()
                 print(f'The clustering coefficient for simulation {Sim} network {nets} is {clustering}')
 
@@ -569,9 +565,6 @@ def parallel_neun_syn_counts(allnets, exportpath):
         for nets in allnets[Sim]:
 
             if os.path.getsize(nets) > 0:
-
-                print(f'Evaluating neurons and synapses for {nets}')
-                print(f"[Calculating NeuN_Syn on thread number ] {threading.current_thread()}")
 
                 net = igraph.Graph.Read(nets)
 
@@ -845,11 +838,10 @@ def write_metrics(metric, exportpath, name, label):
 # ----------------------------------------------------------------------------------------------------------------- #
 
 def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
-
     """
     Plots the analysis for the networks modelled at 50k neurons density and export results;
-    This function initiates all the threads and runs the analysis in parallel for the same network;
-    The .join() function guarantees that all threads will finish at the same time
+    This function initiates all the processes and runs the analysis in parallel for the same network;
+    The .join() function guarantees that all processes will finish at the same time
 
     Arguments:
         allnets(list): Path for the networks generated with the network_acquisition() function of this toolbox for
@@ -863,26 +855,26 @@ def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
         Overlayed plots.
     """
 
-    t1 = threading.Thread(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
-    t2 = threading.Thread(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
-    t3 = threading.Thread(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
-    t4 = threading.Thread(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
-    t5 = threading.Thread(target=plot_alpha_D, args=(datapath, exportpath))
-    t6 = threading.Thread(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
+    p1 = multiprocessing.Process(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
+    p2 = multiprocessing.Process(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
+    p3 = multiprocessing.Process(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
+    p4 = multiprocessing.Process(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
+    p5 = multiprocessing.Process(target=plot_alpha_D, args=(datapath, exportpath))
+    p6 = multiprocessing.Process(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
 
-    t1.start()
-    t2.start()
-    t3.start()
-    t4.start()
-    t5.start()
-    t6.start()
+    p1.start()
+    p2.start()
+    p3.start()
+    p4.start()
+    p5.start()
+    p6.start()
 
-    t1.join()
-    t2.join()
-    t3.join()
-    t4.join()
-    t5.join()
-    t6.join()
+    p1.join()
+    p2.join()
+    p3.join()
+    p4.join()
+    p5.join()
+    p6.join()
 
 
 def plot_alpha_D(datapath, exportpath):
