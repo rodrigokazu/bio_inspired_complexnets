@@ -26,6 +26,10 @@ import seaborn as sns
 import threading
 import time
 
+from scipy.sparse import csgraph, diags
+from scipy.sparse.linalg import eigsh
+from joblib import Parallel, delayed
+
 
 # ----------------------------------------------------------------------------------------------------------------- #
 # In order to utilise this toolbox you will need the path of the folder where you want to export the results #
@@ -41,8 +45,6 @@ import time
 # ----------------------------------------------------------------------------------------------------------------- #
 # Data analysis #
 # ----------------------------------------------------------------------------------------------------------------- #
-
-
 
 
 def analyse_all(allnets, exportpath, **datapath):
@@ -74,6 +76,30 @@ def analyse_all(allnets, exportpath, **datapath):
 
     for process in processes:
         process.join()
+
+
+def compute_fiedler(net_path):
+
+    """ Computes the Fiedler value for a single network """
+
+    try:
+        net = igraph.Graph.Read(net_path)
+        adjacency_matrix = np.array(net.get_adjacency().data)
+        sparse_adjacency_matrix = csr_matrix(adjacency_matrix)
+        laplacian_matrix = csgraph_laplacian(sparse_adjacency_matrix, normed=False)
+        eigenvalues = eigsh(laplacian_matrix, k=2, which='SM', return_eigenvectors=False)
+        fiedler_value = sorted(eigenvalues)[1]  # The second smallest eigenvalue
+        label = network_labelling(net_path)
+        return {
+            "Network": net_path,
+            "Label": label[0],
+            "Iteration": int(label[1]),
+            "FiedlerValue": fiedler_value,
+            "Type": "death" if 'death' in label[0] else "pruning"
+        }
+    except Exception as e:
+        print(f"Error computing Fiedler value for {net_path}: {e}")
+        return None
 
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
@@ -146,6 +172,28 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
 
     return stage, int(it), fit.power_law.alpha, fit.power_law.D
 
+def inspect_data_structure(data, name):
+
+    print(f"Inspecting data structure for {name}:")
+
+    if isinstance(data, dict):
+
+        for key, value in data.items():
+            print(f"Key: {key}, Type: {type(value)}")
+            if isinstance(value, list):
+                print(f"First element type: {type(value[0])} if the list is not empty.")
+            elif isinstance(value, dict):
+                for k, v in value.items():
+                    print(f"  Subkey: {k}, Type: {type(v)}")
+            break
+
+    elif isinstance(data, list):
+
+        print(f"First element type: {type(data[0])} if the list is not empty.")
+    else:
+
+        print(f"Type: {type(data)}")
+
 
 def network_acquisition(density_path):
 
@@ -203,19 +251,19 @@ def network_density_paths(main_path):
              """
 
     fifty = main_path + "/50k/"
-    hundred = main_path + "/100k/"
+    #hundred = main_path + "/100k/"
     keynets = main_path + "/keynets/"
 
     print(keynets)
 
     fiftysims = os.listdir(fifty)
-    hundredsims = os.listdir(hundred)
+    #hundredsims = os.listdir(hundred)
     keynetssims = os.listdir(keynets)
 
 
     keynetssims_paths = list()
     fiftysims_paths = list()
-    hundredsims_paths = list()  # To export a list with the Sim folders "Sim 1", "Sim 2", etc.
+    #hundredsims_paths = list()  # To export a list with the Sim folders "Sim 1", "Sim 2", etc.
 
     for sim in fiftysims:
 
@@ -224,17 +272,17 @@ def network_density_paths(main_path):
             path = fifty + sim
             fiftysims_paths.append(path)
 
-    for sim in hundredsims:
+    #for sim in hundredsims:
 
-        path = hundred + sim
-        hundredsims_paths.append(path)
+        #path = hundred + sim
+        #hundredsims_paths.append(path)
 
     for sim in keynetssims:
 
         path = keynets + sim
         keynetssims_paths.append(path)
 
-    return fiftysims_paths, hundredsims_paths, keynetssims_paths
+    return fiftysims_paths, keynetssims_paths #, hundredsims_paths
 
 
 def parallel_averagepaths(allnets, exportpath):
@@ -296,6 +344,7 @@ def parallel_averagepaths(allnets, exportpath):
 
 
 def parallel_clusters(allnets, exportpath):
+
     """ Computes the clustering coefficient for a list of networks generated with network_acquisition()
 
         Arguments:
@@ -349,9 +398,6 @@ def parallel_clusters(allnets, exportpath):
     return averagecluster
 
 
-# Ensure you have implemented the network_labelling function and write_metrics function if needed.
-
-
 def parallel_density(allnets, exportpath):
 
     """ Computes the density for a list of networks generated with network_acquisition()
@@ -398,6 +444,33 @@ def parallel_density(allnets, exportpath):
         write_metrics(metric=alldensities, exportpath=exportpath, name=name, label=label)
 
     return density
+
+
+def parallel_fiedler_value(allnets, exportpath):
+    """ Computes the Fiedler value (algebraic connectivity) for a list of networks generated with network_acquisition()
+
+        Arguments:
+            allnets (list): List of networks generated with network_acquisition()
+            exportpath (str): Path to export the dataset as a csv
+
+        Returns:
+            CSV of Fiedler values for all networks and simulations
+    """
+
+    all_net_paths = [(Sim, net) for Sim in allnets for net in allnets[Sim] if os.path.getsize(net) > 0]
+    fiedler_values = Parallel(n_jobs=-1)(delayed(compute_fiedler)(net) for Sim, net in all_net_paths)
+
+    fiedler_values = [fv for fv in fiedler_values if fv is not None]
+
+    df = pd.DataFrame(fiedler_values)
+    df.to_csv(os.path.join(exportpath, 'FiedlerValues.csv'), index=False)
+
+    with open(os.path.join(exportpath, 'fiedler_values.pkl'), 'wb') as fp:
+        pickle.dump(fiedler_values, fp)
+
+    print('Fiedler values saved successfully to file')
+
+    return fiedler_values
 
 
 def parallel_fitnet(allnets, exportpath):
@@ -855,21 +928,21 @@ def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
         Overlayed plots.
     """
 
-    p1 = multiprocessing.Process(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
+    #p1 = multiprocessing.Process(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
     p2 = multiprocessing.Process(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
     p3 = multiprocessing.Process(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     p4 = multiprocessing.Process(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     p5 = multiprocessing.Process(target=plot_alpha_D, args=(datapath, exportpath))
     p6 = multiprocessing.Process(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
 
-    p1.start()
+    #p1.start()
     p2.start()
     p3.start()
     p4.start()
     p5.start()
     p6.start()
 
-    p1.join()
+    #p1.join()
     p2.join()
     p3.join()
     p4.join()
@@ -1111,6 +1184,88 @@ def plot_alpha_D(datapath, exportpath):
     return 0
 
 
+def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
+    """ Function to plot overlayed progression of average path length of three different conditions of the Mota's Model
+
+        It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file
+
+        Arguments:
+
+               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
+               exportpath(str): Path to export the figures
+
+          Returns:
+
+             Plots of average path lengths
+
+      """
+
+    data_path = datapath + "averagepaths.pkl"
+
+    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
+        averagepaths = pickle.load(fp)
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
+
+    for sim_data in averagepaths:
+        Sim = sim_data.get("Simulation")
+        if Sim not in to_overlay:
+            continue
+
+        iterations = np.array(sim_data["Iteration"])
+        if iterations.ndim == 0:
+            iterations = np.expand_dims(iterations, axis=0)
+        it_pruning = iterations + 500
+
+        overall_it = np.concatenate((iterations, it_pruning)) if iterations.size > 0 and it_pruning.size > 0 else np.array([])
+        path_length_values = np.array(sim_data["PathLength"])
+        if path_length_values.ndim == 0:
+            path_length_values = np.expand_dims(path_length_values, axis=0)
+        overall_ap = np.concatenate((path_length_values, path_length_values)) if path_length_values.size > 0 else np.array([])
+
+        if overall_it.size == 0 or overall_ap.size == 0:
+            continue
+
+        # plots data
+        print(f"----------------Plotting {Sim}---------------------")
+
+        sns.set_style("ticks")
+
+        sns.set_context(context="paper", rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
+
+        ax = sns.lineplot(x=overall_it, y=overall_ap, markers=True, linewidth=2.5,
+                          label=legend[to_overlay.index(Sim)])
+
+        ax.axvline(x=500, ymin=0, ymax=10, linestyle="dashed", color="0.8")
+        ax.axvspan(0, 500, alpha=0.05)
+        sns.despine()
+
+        plt.legend(loc=1)
+
+    Sim = 0
+
+    # sets labels
+    ax.set_title("Average path length")
+    ax.set_ylabel("Average path length")
+    ax.set_xlabel("Iteration")
+    ax.set_ylim(0, 10)
+    ax.set_xlim(0, 5500)
+
+    # save to file
+    if not os.path.exists(exportpath + "Average_paths"):  # creates export directory
+        os.makedirs(exportpath + "Average_paths")
+
+    plt.savefig(exportpath + "Average_paths/AP_FF" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+                + str(to_overlay[Sim + 2]) + ".png", bbox_inches="tight")
+
+    plt.close(fig)
+    gc.collect()
+
+    return 0
+
+
 def plot_betweenness_centrality(allnets, exportpath):
 
     """ Original function written by Dr Kleber Neves to plot the degree distributions
@@ -1168,6 +1323,89 @@ def plot_betweenness_centrality(allnets, exportpath):
 
                 del net
                 gc.collect()
+
+
+def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
+    """ Function to plot overlayed progression of the clustering coefficient of three different conditions of the Mota's Model
+
+        It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file
+
+        Arguments:
+
+               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
+               exportpath(str): Path to export the figures
+
+          Returns:
+
+             Plots of degree distributions
+
+      """
+
+    data_path = datapath + "clustering.pkl"
+
+    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
+        clustering = pickle.load(fp)
+
+    fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
+
+    for sim_data in clustering:
+        Sim = sim_data.get("Simulation")
+        if Sim not in to_overlay:
+            continue
+
+        iterations = np.array(sim_data["Iteration"])
+        if iterations.ndim == 0:
+            iterations = np.expand_dims(iterations, axis=0)
+        it_pruning = iterations + 500
+
+        overall_it = np.concatenate((iterations, it_pruning)) if iterations.size > 0 and it_pruning.size > 0 else np.array([])
+        clustering_values = np.array(sim_data["Clustering"])
+        if clustering_values.ndim == 0:
+            clustering_values = np.expand_dims(clustering_values, axis=0)
+        overall_cc = np.concatenate((clustering_values, clustering_values)) if clustering_values.size > 0 else np.array([])
+
+        if overall_it.size == 0 or overall_cc.size == 0:
+            continue
+
+        # plots data
+        print(f"----------------Plotting {Sim}---------------------")
+
+        sns.set_style("ticks")
+
+        sns.set_context(context="paper", rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+                                             "lines.linewidth": 2, "xtick.labelsize": 8,
+                                             "ytick.labelsize": 8})
+
+        ax = sns.lineplot(x=overall_it, y=overall_cc, markers=True, linewidth=2.5,
+                          label=legend[to_overlay.index(Sim)])
+        ax.set(yscale="log")
+        ax.set_ylim(10**-5, 10**0)
+        ax.axvline(x=500, ymin=0, ymax=1, linestyle="dashed", color="0.8")
+        ax.axvspan(0, 500, alpha=0.05)
+        sns.despine()
+
+        plt.legend(loc=1)
+
+    Sim = 0
+
+    # sets labels
+    ax.set_title("Average clustering coefficient")
+    ax.set_ylabel("Clustering coefficient")
+    ax.set_xlabel("Iteration")
+    ##ax.set_ylim(0, 0.1)
+    ax.set_xlim(0, 5500)
+
+    # save to file
+    if not os.path.exists(exportpath + "Clustering"):  # creates export directory
+        os.makedirs(exportpath + "Clustering")
+
+    plt.savefig(exportpath + "Clustering/CC_loglog" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
+                + str(to_overlay[Sim + 2]) + ".png", bbox_inches="tight")
+
+    plt.close(fig)
+    gc.collect()
+
+    return 0
 
 
 def plot_degree_distribution_line(allnets, exportpath):
@@ -1430,170 +1668,51 @@ def plot_degree_distribution_overlayedscats(allnets, exportpath, to_overlay, leg
         gc.collect()
 
 
-def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
+def plot_fiedler_values(datapath, exportpath):
 
-    """ Function to plot overlayed progresion of average path length of three different conditions of the Mota's Model
-
-        It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file
+    """ Plots the Fiedler values for different simulations
 
         Arguments:
+            datapath (str): Path to the pickled file exported by parallel_fiedler_value
+            exportpath (str): Path to export the figures
 
-               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
-               exportpath(str): Path to export the figures
+        Returns:
+            Plots of Fiedler values
+    """
 
-          Returns:
+    data_path = datapath + "fiedler_values.pkl"
 
-             Plots of average path lengths
+    with open(data_path, 'rb') as fp:  # Load the Fiedler values
+        fiedler_values = pickle.load(fp)
 
-      """
+    for Sim in fiedler_values:
+        iterations = []
+        values = []
 
-    to_overlay = to_overlay
-    legend = legend
-    color = color
+        for record in fiedler_values:
+            if record['Simulation'] == Sim:
+                iterations.append(record['Iteration'])
+                values.append(record['FiedlerValue'])
 
-    data_path = datapath + "averagepaths.pkl"
-
-    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
-
-        averagepaths = pickle.load(fp)
-
-    # Import block IF using the pickle file #
-
-    fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
-    # sns.set_palette("Blues_r")
-
-    for Sim in to_overlay:
-
-        it_pruning = np.array(averagepaths[Sim]['it_p'])
-        it_pruning = it_pruning + 500
-        it_pruning = list(it_pruning)
-
-        overall_it = averagepaths[Sim]['it_d'] + it_pruning
-        overall_ap = averagepaths[Sim]['ap_d'] + averagepaths[Sim]['ap_p']
-
-        # plots data
-
-        print(f'----------------Plotting {Sim}---------------------')
-
+        fig = plt.figure(figsize=(5, 5), dpi=500)
         sns.set_style("ticks")
-
         sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_ap), markers=True, linewidth=2.5,
-                          label=legend[to_overlay.index(Sim)])
-
-        # color = color[Sim], # Model Conditions
-
-        ax.axvline(x=500, ymin=0, ymax=10, linestyle="dashed", color="0.8")
-        ax.axvspan(0, 500, alpha=0.05)
+        ax = sns.lineplot(x=iterations, y=values, markers=True, linewidth=2.5, label=Sim)
+        ax.set_ylabel("Fiedler Value")
+        ax.set_xlabel("Iteration")
+        ax.set_title(f"Fiedler Values for {Sim}")
         sns.despine()
+        plt.legend()
 
-        plt.legend(loc=1)
+        if not os.path.exists(exportpath + "FiedlerValues"):
+            os.makedirs(exportpath + "FiedlerValues")
 
-    Sim = 0
-
-    # sets labels
-    ax.set_title("Average path length")
-    ax.set_ylabel("Average path length")
-    ax.set_xlabel("Iteration")
-    ax.set_ylim(0, 10)
-    ax.set_xlim(0, 3000)
-
-
-    # save to file
-    if not os.path.exists(exportpath + "Average_paths"):  # creates export directory
-
-        os.makedirs(exportpath + "Average_paths")
-
-    plt.savefig(exportpath + "Average_paths/AP_FF" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
-                + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
-
-    plt.close(fig)
-    gc.collect()
-
-    return 0
-
-
-def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
-
-    """ Function to plot overlayed progression of the clustering coefficient of three different conditions of the Mota's Model
-
-        It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file
-
-        Arguments:
-
-               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
-               exportpath(str): Path to export the figures
-
-          Returns:
-
-             Plots of degree distributions
-
-      """
-    to_overlay = to_overlay
-    legend = legend
-    color = color
-
-    data_path = datapath + "clustering.pkl"
-
-    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
-
-        clustering = pickle.load(fp)
-
-    fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
-
-    for Sim in to_overlay:
-
-        it_pruning = np.array(clustering[Sim]['it_p'])
-        it_pruning = it_pruning + 500
-        it_pruning = list(it_pruning)
-
-        overall_it = clustering[Sim]['it_d'] + it_pruning
-        overall_cc = clustering[Sim]['c_d'] + clustering[Sim]['c_p']
-
-        # plots data
-
-        print(f'----------------Plotting {Sim}---------------------')
-
-        sns.set_style("ticks")
-
-        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
-                                             "lines.linewidth": 2, "xtick.labelsize": 8,
-                                             "ytick.labelsize": 8})
-
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_cc), markers=True, linewidth=2.5,
-                          label=legend[to_overlay.index(Sim)])
-        # color = color[Sim], # Model Conditions
-        ax.set(yscale="log")
-        ax.set_ylim(10**-5, 10**0)
-        ax.axvline(x=500,  ymin=0,  ymax=1, linestyle="dashed", color="0.8")
-        ax.axvspan(0, 500, alpha=0.05)
-        sns.despine()
-
-        plt.legend(loc=1)
-
-    Sim = 0
-
-    # sets labels
-    ax.set_title("Average clustering coefficient")
-    ax.set_ylabel("Clustering coefficient")
-    ax.set_xlabel("Iteration")
-    ##ax.set_ylim(0, 0.1)
-    ax.set_xlim(0, 3000)
-
-
-    # save to file
-    if not os.path.exists(exportpath + "Clustering"):  # creates export directory
-
-        os.makedirs(exportpath + "Clustering")
-
-    plt.savefig(exportpath + "Clustering/CC_loglog" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
-                + str(to_overlay[Sim + 2]) + '.png', bbox_inches='tight')
-
-    plt.close(fig)
-    gc.collect()
+        plt.savefig(exportpath + f"FiedlerValues/{Sim}.png", bbox_inches='tight')
+        plt.close(fig)
+        gc.collect()
 
     return 0
 
@@ -1725,10 +1844,9 @@ def plot_pruningrate(color, datapath, exportpath, legend, to_overlay):
         print(f'----------------Plotting {Sim}---------------------')
 
         ax = sns.lineplot(x=it_pruning, y=pruned_fraction[Sim], markers=True, linewidth=2.5,
-                          label=legend[to_overlay.index(Sim)])
-        ax.set_ylim(-0.005, 30)
+                          label=legend[to_overlay.index(Sim)], color=color[Sim])
+        ax.set_ylim(-0.005, 50)
 
-        # color = color[Sim], # Model Conditions
         plt.legend(loc=1)
         sns.despine()
 
@@ -1908,7 +2026,6 @@ def plot_synaptic_fraction(NeuN_Syn, exportpath):
 
 
 def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_overlay):
-
     """ Function to plot overlayed curves of synaptic preservation of three different conditions of the Mota's Model
 
      Arguments:
@@ -1923,42 +2040,41 @@ def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_ove
 
    """
 
-    to_overlay = to_overlay
-    legend = legend
-    color = color
-
-    data_path = datapath + "averagepaths.pkl"
+    data_path = datapath + "NeuN_Syn.pkl"
 
     with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
-
         NeuN_Syn = pickle.load(fp)
-
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
 
     for Sim in to_overlay:
+        sim_data = NeuN_Syn.get(Sim, {})
 
-        it_pruning = np.array(NeuN_Syn[Sim]['it_p'])
-        it_pruning = it_pruning + 500
-        it_pruning = list(it_pruning)
+        iterations = np.array(sim_data.get("Iteration", []))
+        if iterations.ndim == 0:
+            iterations = np.expand_dims(iterations, axis=0)
+        it_pruning = iterations + 500
 
-        overall_it = NeuN_Syn[Sim]['it_d'] + it_pruning
-        overall_syn = NeuN_Syn[Sim]['syn_d'] + NeuN_Syn[Sim]['syn_p']
+        overall_it = np.concatenate((iterations, it_pruning)) if iterations.size > 0 and it_pruning.size > 0 else np.array([])
+        syn_values = np.array(sim_data.get("Syn", []))
+        if syn_values.ndim == 0:
+            syn_values = np.expand_dims(syn_values, axis=0)
+        overall_syn = np.concatenate((syn_values, syn_values)) if syn_values.size > 0 else np.array([])
+
+        if overall_it.size == 0 or overall_syn.size == 0:
+            continue
 
         # plots data
-
-        print(f'----------------Plotting {Sim}---------------------')
+        print(f"----------------Plotting {Sim}---------------------")
 
         sns.set_style("ticks")
 
-        sns.set_context(context='paper', rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
+        sns.set_context(context="paper", rc={"font.size": 10, "axes.titlesize": 12, "axes.labelsize": 9,
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=np.array(overall_it), y=np.array(overall_syn), markers=True, linewidth=2.5, color = color[Sim],
+        ax = sns.lineplot(x=overall_it, y=overall_syn, markers=True, linewidth=2.5, color=color[Sim],
                           label=legend[to_overlay.index(Sim)])
-
-        # color = color[Sim], # Model Conditions
 
         ax.axvline(x=500, ymin=0, ymax=10, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
@@ -1973,25 +2089,20 @@ def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_ove
     ax.set_ylabel("Synaptic count")
     ax.set_xlabel("Iteration")
     ax.set_ylim(0, 600000)
-    ax.set_xlim(0, 3000)
+    ax.set_xlim(0, 5500)
 
     # save to file
     if not os.path.exists(exportpath + "Synaptic_Preservation"):  # creates export directory
-
         os.makedirs(exportpath + "Synaptic_Preservation")
 
     plt.savefig(exportpath + "Synaptic_Preservation/SP" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1]) + "_"
-                + str(to_overlay[Sim+2]) + '.png', bbox_inches='tight')
+                + str(to_overlay[Sim+2]) + ".png", bbox_inches="tight")
 
     plt.close(fig)
     gc.collect()
 
     return 0
 
-
-# ----------------------------------------------------------------------------------------------------------------- #
-# Support functions #
-# ----------------------------------------------------------------------------------------------------------------- #
 
 
 def network_labelling(netpath):

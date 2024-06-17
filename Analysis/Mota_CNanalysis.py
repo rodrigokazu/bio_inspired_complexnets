@@ -46,14 +46,14 @@ analysis2024 = "C:\\Users\\me1rss\\Dropbox\\NeuralPathways\\Current projects\\co
 paths =Mota_CNtoolbox.network_density_paths(main_path)
 
 fiftynets = Mota_CNtoolbox.network_acquisition(paths[0])
-hundrednets = Mota_CNtoolbox.network_acquisition(paths[1])
-keynets = Mota_CNtoolbox.network_acquisition(paths[2])  # For reference
+#hundrednets = Mota_CNtoolbox.network_acquisition(paths[1])
+keynets = Mota_CNtoolbox.network_acquisition(paths[1])  # For reference
 
 # Key arguments for plotting and analysis #
 
 to_overlay = ['Sim 1y', 'Sim 2y', 'Sim 6y']
 legend = ["Our model", "Random Death", "Random Pruning"]
-color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
+color = {"Sim 6y": "r", "Sim 2y": [1.0000, 0.4980, 0.], "Sim 1y": "b"}
 
 """
 # FF arguments #
@@ -61,20 +61,20 @@ color = {"Sim 6": "r", "Sim 2": [1.0000, 0.4980, 0.], "Sim 1": "b"}
 # to_overlay = ['Sim 8y', 'Sim 7y', 'Sim 1y']  # FF
 # legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
 # sns.set_palette("Blues_r")  # FF
-"""
 
+
+"""
 # Actual analysis #
 
 if __name__ == '__main__':
 
     start_time = time.time()
-    Mota_CNtoolbox.analyse_all(allnets=keynets, exportpath=exportkeynets)
+    Mota_CNtoolbox.plot_ALL_analysis(to_overlay=to_overlay, legend=legend, color=color, allnets=keynets,
+                                     datapath=analysis2024, exportpath=analysis2024)
     end_time = time.time()
 
     print(f"Multiprocessing time taken: {end_time - start_time} seconds")
 
-#Mota_CNtoolbox.plot_ALL_analysis(to_overlay=to_overlay, legend=legend, color=color, allnets=keynets, datapath=datapath,
-                                 #exportpath=analysis2024)
 
 
 

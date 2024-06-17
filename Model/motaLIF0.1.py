@@ -102,7 +102,7 @@ def pruning_probability(e, mean_indegree_sq, outdegrees, indegrees):
 def save_network_to_file(suffix="", it=0, where="."):
     if not os.path.exists(os.path.join(where, "Edges")):
         os.makedirs(os.path.join(where, "Edges"))
-    fn = os.path.join(where, f"Edges/mota_net_{suffix}{it}.edges")
+    fn = os.path.join(where, f"Edges/mota_{suffix}_{it}.edges")
     net.write_edgelist(fn)
 
 def save_parameters(args, where="."):
@@ -116,11 +116,13 @@ def save_parameters(args, where="."):
 def mean(numbers):
     return float(sum(numbers)) / max(len(numbers), 1)
 
+import time
+
 def simulate_neuronal_activity(iteration, output_folder):
 
     print("Simulating neuronal activity ...")
 
-    duration = 10 * b2.second
+    duration = 1 * b2.second
 
     # Parameters for LIF neurons
     tau = 10 * b2.ms
@@ -141,13 +143,15 @@ def simulate_neuronal_activity(iteration, output_folder):
 
     start_time = time.time()
     print("Creating neuron group...")
-    G = b2.NeuronGroup(total_neurons, model=eqs, threshold='v>v_threshold', reset='v=v_reset', method='linear')
+    G = b2.NeuronGroup(total_neurons, model=eqs, threshold='v>v_threshold', reset='v=v_reset', method='euler')
     G.v = vr
-    G.I0 = 0.2 * b2.nA  # Reduced baseline input current
-    G.sigma = 0.1 * b2.nA  # Noise amplitude
+    G.I0 = 1.0 * b2.nA  # Increased baseline input current
+    G.sigma = 0.5 * b2.nA  # Increased noise amplitude
     G.tau_noise = 5 * b2.ms  # Noise correlation time
     end_time = time.time()
     print(f"Neuron group creation took {end_time - start_time:.2f} seconds")
+
+    print(f"Initial membrane potentials: {G.v[:10]}")  # Print initial membrane potentials
 
     start_time = time.time()
     # Create synapses with STDP
@@ -183,7 +187,9 @@ def simulate_neuronal_activity(iteration, output_folder):
     b2.run(duration)
     end_time = time.time()
     print(f"Simulation run took {end_time - start_time:.2f} seconds")
-    print("Simulation complete.")
+
+    print(f"Membrane potentials after simulation: {G.v[:10]}")  # Print membrane potentials after simulation
+    print(f"Input currents after simulation: {G.I0 + G.I_noise[:10]}")  # Print input currents after simulation
 
     start_time = time.time()
     # Get spike times and neuron indices
@@ -210,15 +216,14 @@ def simulate_neuronal_activity(iteration, output_folder):
     new_edges = []
     edges_to_remove = []
 
+    print("Updating network topology.")
+
     for i, j, w in zip(S.i, S.j, S.w):
         if w < 0.01:  # Threshold for removing a synapse
-            edges_to_remove.append((i, j))
+            edges_to_remove.append(net.get_eid(i, j))
 
-    # Remove weak synapses
-    for i, j in edges_to_remove:
-        eid = net.get_eid(i, j)
-        if eid is not None:
-            net.delete_edges(eid)
+    # Remove weak synapses in batch
+    net.delete_edges(edges_to_remove)
 
     # Optionally, add new random edges to maintain connectivity
     num_new_edges = len(edges_to_remove)
@@ -228,6 +233,17 @@ def simulate_neuronal_activity(iteration, output_folder):
     net.add_edges(new_edges)
     end_time = time.time()
     print(f"Network topology update based on activity took {end_time - start_time:.2f} seconds")
+
+    # Save the network after the topology update
+    save_network_to_file(f"LIFnet_{iteration}", iteration, where=output_folder)
+
+def save_network_to_file(suffix="", it=0, where="."):
+    if not os.path.exists(os.path.join(where, "Edges")):
+        os.makedirs(os.path.join(where, "Edges"))
+    fn = os.path.join(where, f"Edges/mota_{suffix}_{it}.edges")
+    net.write_edgelist(fn)
+
+
 
 
 def perform_death_iteration(it, save_freq, save_net, output_folder, mean_indegree, mean_degree, outdegrees, indegrees, degrees):
