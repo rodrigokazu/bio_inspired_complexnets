@@ -929,25 +929,25 @@ def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
     """
 
     #p1 = multiprocessing.Process(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
-    p2 = multiprocessing.Process(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
-    p3 = multiprocessing.Process(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
+    #p2 = multiprocessing.Process(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
+    #p3 = multiprocessing.Process(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     p4 = multiprocessing.Process(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
-    p5 = multiprocessing.Process(target=plot_alpha_D, args=(datapath, exportpath))
-    p6 = multiprocessing.Process(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
+    #p5 = multiprocessing.Process(target=plot_alpha_D, args=(datapath, exportpath))
+    #p6 = multiprocessing.Process(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
 
     #p1.start()
-    p2.start()
-    p3.start()
+    #p2.start()
+    #p3.start()
     p4.start()
-    p5.start()
-    p6.start()
+    #p5.start()
+    #p6.start()
 
     #p1.join()
-    p2.join()
-    p3.join()
+    #p2.join()
+    #p3.join()
     p4.join()
-    p5.join()
-    p6.join()
+    #p5.join()
+    #p6.join()
 
 
 def plot_alpha_D(datapath, exportpath):
@@ -1218,7 +1218,7 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
         it_pruning = iterations + 500
 
         overall_it = np.concatenate((iterations, it_pruning)) if iterations.size > 0 and it_pruning.size > 0 else np.array([])
-        path_length_values = np.array(sim_data["PathLength"])
+        path_length_values = np.array(sim_data.get("AveragePathLength", []))
         if path_length_values.ndim == 0:
             path_length_values = np.expand_dims(path_length_values, axis=0)
         overall_ap = np.concatenate((path_length_values, path_length_values)) if path_length_values.size > 0 else np.array([])
@@ -1264,6 +1264,7 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
     gc.collect()
 
     return 0
+
 
 
 def plot_betweenness_centrality(allnets, exportpath):
@@ -2088,7 +2089,7 @@ def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_ove
     ax.set_title("Preservation of Synapses over time ")
     ax.set_ylabel("Synaptic count")
     ax.set_xlabel("Iteration")
-    ax.set_ylim(0, 600000)
+    ax.set_ylim(0, 5000500)
     ax.set_xlim(0, 5500)
 
     # save to file
