@@ -195,6 +195,55 @@ def inspect_data_structure(data, name):
         print(f"Type: {type(data)}")
 
 
+import os
+import pickle
+import numpy as np
+
+
+def load_and_concatenate_average_path(datapath):
+    """
+     Load the pickled file and concatenate the average path values and iterations for each simulation,
+     adding 500 to iterations that came from pruning.
+
+     Arguments:
+         datapath (str): Path to the pickled file exported by parallel_averagepath(allnets, exportpath).
+
+     Returns:
+         dict: A dictionary with simulation names as keys and a tuple of two lists (iterations, average_path) as values.
+     """
+    data_path = os.path.join(datapath, "averagepaths.pkl")  # Construct the full path to the pickle file
+
+    with open(data_path, 'rb') as fp:  # Load the pickled file
+        averagepaths = pickle.load(fp)
+
+    concatenated_data = {}  # Initialize an empty dictionary to store the concatenated data
+
+    for sim_data in averagepaths:  # Iterate over each simulation's data
+        Sim = sim_data.get("Simulation")  # Get the simulation name
+        iterations = np.array(sim_data["Iteration"])  # Get the iterations as a numpy array
+        average_path_values = np.array(
+            sim_data.get("AveragePathLength", []))  # Get the average path values as a numpy array
+        label = sim_data.get("Label", "")  # Get the label to determine if pruning is involved
+
+        # Ensure both arrays are at least 1-dimensional
+        if iterations.ndim == 0:
+            iterations = np.expand_dims(iterations, axis=0)  # Expand dimensions if needed
+        if average_path_values.ndim == 0:
+            average_path_values = np.expand_dims(average_path_values, axis=0)  # Expand dimensions if needed
+
+        if Sim not in concatenated_data:  # Initialize the lists if the simulation key is not already in the dictionary
+            concatenated_data[Sim] = ([], [])
+
+        # Adjust iterations if the label indicates pruning
+        adjusted_iterations = iterations + 500 if 'pruning' in label.lower() else iterations
+
+        # Extend the lists with the new data
+        concatenated_data[Sim][0].extend(adjusted_iterations.tolist())  # Add adjusted iterations
+        concatenated_data[Sim][1].extend(average_path_values.tolist())  # Add average path values
+
+    return concatenated_data  # Return the dictionary with concatenated data
+
+
 def network_acquisition(density_path):
 
     """ Acquires the paths to the biologically-inspired networks for further analysis
@@ -1184,23 +1233,25 @@ def plot_alpha_D(datapath, exportpath):
     return 0
 
 
+
 def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
-    """ Function to plot overlayed progression of average path length of three different conditions of the Mota's Model
+    """
+    Function to plot overlayed progression of average path length of three different conditions of the Mota's Model.
 
-        It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file
+    It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file.
 
-        Arguments:
+    Arguments:
+        datapath (str): Path to the pickled file exported by parallel_averagepath(allnets, exportpath).
+        exportpath (str): Path to export the figures.
+        color (dict): Dictionary mapping Sim values to colors.
+        legend (list): List of legend labels.
+        to_overlay (list): List of Sim values to overlay in the plot.
 
-               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
-               exportpath(str): Path to export the figures
+    Returns:
+        int: 0 if successful.
+    """
 
-          Returns:
-
-             Plots of average path lengths
-
-      """
-
-    data_path = datapath + "averagepaths.pkl"
+    data_path = os.path.join(datapath, "averagepaths.pkl")
 
     with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
         averagepaths = pickle.load(fp)
@@ -1213,20 +1264,34 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
             continue
 
         iterations = np.array(sim_data["Iteration"])
+        path_length_values = np.array(sim_data.get("AveragePathLength", []))
+
+        # Ensure both arrays are at least 1-dimensional
         if iterations.ndim == 0:
             iterations = np.expand_dims(iterations, axis=0)
-        it_pruning = iterations + 500
-
-        overall_it = np.concatenate((iterations, it_pruning)) if iterations.size > 0 and it_pruning.size > 0 else np.array([])
-        path_length_values = np.array(sim_data.get("AveragePathLength", []))
         if path_length_values.ndim == 0:
             path_length_values = np.expand_dims(path_length_values, axis=0)
-        overall_ap = np.concatenate((path_length_values, path_length_values)) if path_length_values.size > 0 else np.array([])
 
-        if overall_it.size == 0 or overall_ap.size == 0:
-            continue
+        # Only process if there are values for iterations and path lengths
+        if iterations.size > 0 and path_length_values.size > 0:
+            overall_it = list(iterations)
+            overall_ap = list(path_length_values)
 
-        # plots data
+            # Add specific values for each iteration
+            for it, pl in zip(iterations, path_length_values):
+                if it == 0 or it == 450 or it == 500:
+                    overall_it.append(it + 450)
+                    overall_ap.append(pl)
+
+            overall_it = np.array(overall_it)
+            overall_ap = np.array(overall_ap)
+
+            # Sort the arrays by iterations
+            sorted_indices = np.argsort(overall_it)
+            overall_it = overall_it[sorted_indices]
+            overall_ap = overall_ap[sorted_indices]
+
+    # plots data
         print(f"----------------Plotting {Sim}---------------------")
 
         sns.set_style("ticks")
@@ -1264,7 +1329,6 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
     gc.collect()
 
     return 0
-
 
 
 def plot_betweenness_centrality(allnets, exportpath):
