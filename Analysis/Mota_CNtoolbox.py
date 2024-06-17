@@ -195,53 +195,87 @@ def inspect_data_structure(data, name):
         print(f"Type: {type(data)}")
 
 
-import os
-import pickle
-import numpy as np
-
-
-def load_and_concatenate_average_path(datapath):
+def load_and_concatenate_data(datapath, data_type):
     """
-     Load the pickled file and concatenate the average path values and iterations for each simulation,
-     adding 500 to iterations that came from pruning.
+    Load the pickled file and concatenate the values and iterations for each simulation,
+    adding 500 to iterations that came from pruning if applicable.
 
-     Arguments:
-         datapath (str): Path to the pickled file exported by parallel_averagepath(allnets, exportpath).
+    Arguments:
+        datapath (str): Path to the directory containing the pickled files.
+        data_type (str): Type of data to load ('averagepaths', 'clustering', or 'neun_syn').
 
-     Returns:
-         dict: A dictionary with simulation names as keys and a tuple of two lists (iterations, average_path) as values.
-     """
-    data_path = os.path.join(datapath, "averagepaths.pkl")  # Construct the full path to the pickle file
+    Returns:
+        dict: A dictionary with simulation names as keys and a tuple of two lists (iterations, values) as values.
+    """
+    # Map data types to filenames and keys
+    data_file_map = {
+        'averagepaths': 'averagepaths.pkl',
+        'clustering': 'clustering.pkl',
+        'neun_syn': 'NeuN_Syn.pkl'
+    }
+
+    # Define the key to extract values based on data type
+    value_key_map = {
+        'averagepaths': 'AveragePathLength',
+        'clustering': 'Clustering',
+        'neun_syn': 'Syn'  # Assuming we are interested in Syn values
+    }
+
+    data_path = os.path.join(datapath, data_file_map[data_type])  # Construct the full path to the pickle file
+    value_key = value_key_map[data_type]  # Get the key to extract the values
 
     with open(data_path, 'rb') as fp:  # Load the pickled file
-        averagepaths = pickle.load(fp)
+        data = pickle.load(fp)
 
     concatenated_data = {}  # Initialize an empty dictionary to store the concatenated data
 
-    for sim_data in averagepaths:  # Iterate over each simulation's data
-        Sim = sim_data.get("Simulation")  # Get the simulation name
-        iterations = np.array(sim_data["Iteration"])  # Get the iterations as a numpy array
-        average_path_values = np.array(
-            sim_data.get("AveragePathLength", []))  # Get the average path values as a numpy array
-        label = sim_data.get("Label", "")  # Get the label to determine if pruning is involved
+    if data_type == 'neun_syn':
+        # For NeuN_Syn data, iterate over dictionary keys
+        for Sim, sim_data in data.items():
+            iterations = np.array(sim_data["Iteration"])
+            values = np.array(sim_data.get(value_key, []))
+            label = sim_data.get("Label", "")
 
-        # Ensure both arrays are at least 1-dimensional
-        if iterations.ndim == 0:
-            iterations = np.expand_dims(iterations, axis=0)  # Expand dimensions if needed
-        if average_path_values.ndim == 0:
-            average_path_values = np.expand_dims(average_path_values, axis=0)  # Expand dimensions if needed
+            # Ensure both arrays are at least 1-dimensional
+            if iterations.ndim == 0:
+                iterations = np.expand_dims(iterations, axis=0)
+            if values.ndim == 0:
+                values = np.expand_dims(values, axis=0)
 
-        if Sim not in concatenated_data:  # Initialize the lists if the simulation key is not already in the dictionary
-            concatenated_data[Sim] = ([], [])
+            if Sim not in concatenated_data:
+                concatenated_data[Sim] = ([], [])
 
-        # Adjust iterations if the label indicates pruning
-        adjusted_iterations = iterations + 500 if 'pruning' in label.lower() else iterations
+            # Adjust iterations if the label indicates pruning
+            adjusted_iterations = iterations + 500 if 'pruning' in label.lower() else iterations
 
-        # Extend the lists with the new data
-        concatenated_data[Sim][0].extend(adjusted_iterations.tolist())  # Add adjusted iterations
-        concatenated_data[Sim][1].extend(average_path_values.tolist())  # Add average path values
+            # Extend the lists with the new data
+            concatenated_data[Sim][0].extend(adjusted_iterations.tolist())
+            concatenated_data[Sim][1].extend(values.tolist())
+    else:
+        # For averagepaths and clustering data, iterate over list elements
+        for sim_data in data:
+            Sim = sim_data.get("Simulation")
+            iterations = np.array(sim_data["Iteration"])
+            values = np.array(sim_data.get(value_key, []))
+            label = sim_data.get("Label", "")
 
-    return concatenated_data  # Return the dictionary with concatenated data
+            # Ensure both arrays are at least 1-dimensional
+            if iterations.ndim == 0:
+                iterations = np.expand_dims(iterations, axis=0)
+            if values.ndim == 0:
+                values = np.expand_dims(values, axis=0)
+
+            if Sim not in concatenated_data:
+                concatenated_data[Sim] = ([], [])
+
+            # Adjust iterations if the label indicates pruning
+            adjusted_iterations = iterations + 500 if 'pruning' in label.lower() else iterations
+
+            # Extend the lists with the new data
+            concatenated_data[Sim][0].extend(adjusted_iterations.tolist())
+            concatenated_data[Sim][1].extend(values.tolist())
+
+    return concatenated_data
 
 
 def network_acquisition(density_path):
@@ -713,7 +747,7 @@ def parallel_neun_syn_counts(allnets, exportpath):
 
                 labels[Sim].append(label[0])
 
-                #print(f'Network has {len(net.vs.select(_degree_gt=1))} active neurons.')
+                print(f'Acquiring counts for {Sim} "_" {nets}')
 
                 del net
                 gc.collect()
@@ -978,25 +1012,25 @@ def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
     """
 
     #p1 = multiprocessing.Process(target=plot_degree_distribution_overlayedscats, args=(allnets, exportpath, to_overlay, legend, color))
-    #p2 = multiprocessing.Process(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
-    #p3 = multiprocessing.Process(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
+    p2 = multiprocessing.Process(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
+    p3 = multiprocessing.Process(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     p4 = multiprocessing.Process(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     #p5 = multiprocessing.Process(target=plot_alpha_D, args=(datapath, exportpath))
-    #p6 = multiprocessing.Process(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
+    p6 = multiprocessing.Process(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
 
     #p1.start()
-    #p2.start()
-    #p3.start()
+    p2.start()
+    p3.start()
     p4.start()
     #p5.start()
-    #p6.start()
+    p6.start()
 
     #p1.join()
-    #p2.join()
-    #p3.join()
+    p2.join()
+    p3.join()
     p4.join()
     #p5.join()
-    #p6.join()
+    p6.join()
 
 
 def plot_alpha_D(datapath, exportpath):
@@ -1235,13 +1269,12 @@ def plot_alpha_D(datapath, exportpath):
 
 
 def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
+
     """
     Function to plot overlayed progression of average path length of three different conditions of the Mota's Model.
 
-    It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file.
-
     Arguments:
-        datapath (str): Path to the pickled file exported by parallel_averagepath(allnets, exportpath).
+        datapath (str): Path to the directory containing the pickled files.
         exportpath (str): Path to export the figures.
         color (dict): Dictionary mapping Sim values to colors.
         legend (list): List of legend labels.
@@ -1250,48 +1283,17 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
     Returns:
         int: 0 if successful.
     """
-
-    data_path = os.path.join(datapath, "averagepaths.pkl")
-
-    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
-        averagepaths = pickle.load(fp)
+    concatenated_data = load_and_concatenate_data(datapath, 'averagepaths')
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
 
-    for sim_data in averagepaths:
-        Sim = sim_data.get("Simulation")
-        if Sim not in to_overlay:
+    for Sim in to_overlay:
+        if Sim not in concatenated_data:
             continue
 
-        iterations = np.array(sim_data["Iteration"])
-        path_length_values = np.array(sim_data.get("AveragePathLength", []))
+        overall_it, overall_ap = concatenated_data[Sim]
 
-        # Ensure both arrays are at least 1-dimensional
-        if iterations.ndim == 0:
-            iterations = np.expand_dims(iterations, axis=0)
-        if path_length_values.ndim == 0:
-            path_length_values = np.expand_dims(path_length_values, axis=0)
-
-        # Only process if there are values for iterations and path lengths
-        if iterations.size > 0 and path_length_values.size > 0:
-            overall_it = list(iterations)
-            overall_ap = list(path_length_values)
-
-            # Add specific values for each iteration
-            for it, pl in zip(iterations, path_length_values):
-                if it == 0 or it == 450 or it == 500:
-                    overall_it.append(it + 450)
-                    overall_ap.append(pl)
-
-            overall_it = np.array(overall_it)
-            overall_ap = np.array(overall_ap)
-
-            # Sort the arrays by iterations
-            sorted_indices = np.argsort(overall_it)
-            overall_it = overall_it[sorted_indices]
-            overall_ap = overall_ap[sorted_indices]
-
-    # plots data
+        # plots data
         print(f"----------------Plotting {Sim}---------------------")
 
         sns.set_style("ticks")
@@ -1301,15 +1303,13 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
                                              "ytick.labelsize": 8})
 
         ax = sns.lineplot(x=overall_it, y=overall_ap, markers=True, linewidth=2.5,
-                          label=legend[to_overlay.index(Sim)])
+                          label=legend[to_overlay.index(Sim)], color=color[Sim])
 
-        ax.axvline(x=500, ymin=0, ymax=10, linestyle="dashed", color="0.8")
+        ax.axvline(x=500, ymin=0, ymax=7, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
         sns.despine()
 
         plt.legend(loc=1)
-
-    Sim = 0
 
     # sets labels
     ax.set_title("Average path length")
@@ -1322,8 +1322,7 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
     if not os.path.exists(exportpath + "Average_paths"):  # creates export directory
         os.makedirs(exportpath + "Average_paths")
 
-    plt.savefig(exportpath + "Average_paths/AP_FF" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
-                + str(to_overlay[Sim + 2]) + ".png", bbox_inches="tight")
+    plt.savefig(exportpath + "Average_paths/AP_FF" + "_".join(map(str, to_overlay)) + ".png", bbox_inches="tight")
 
     plt.close(fig)
     gc.collect()
@@ -1389,48 +1388,29 @@ def plot_betweenness_centrality(allnets, exportpath):
                 del net
                 gc.collect()
 
-
 def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
-    """ Function to plot overlayed progression of the clustering coefficient of three different conditions of the Mota's Model
+    """
+    Function to plot overlayed progression of the clustering coefficient of three different conditions of the Mota's Model.
 
-        It is computationally intense to run parallel_averagepath(allnets, exportpath) so we opted for a saved pkl file
+    Arguments:
+        datapath (str): Path to the directory containing the pickled files.
+        exportpath (str): Path to export the figures.
+        color (dict): Dictionary mapping Sim values to colors.
+        legend (list): List of legend labels.
+        to_overlay (list): List of Sim values to overlay in the plot.
 
-        Arguments:
-
-               datapath (dict): Path to the pickled file exported by parallel_averagepath(allnets, exportpath)
-               exportpath(str): Path to export the figures
-
-          Returns:
-
-             Plots of degree distributions
-
-      """
-
-    data_path = datapath + "clustering.pkl"
-
-    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
-        clustering = pickle.load(fp)
+    Returns:
+        int: 0 if successful.
+    """
+    concatenated_data = load_and_concatenate_data(datapath, 'clustering')
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
 
-    for sim_data in clustering:
-        Sim = sim_data.get("Simulation")
-        if Sim not in to_overlay:
+    for Sim in to_overlay:
+        if Sim not in concatenated_data:
             continue
 
-        iterations = np.array(sim_data["Iteration"])
-        if iterations.ndim == 0:
-            iterations = np.expand_dims(iterations, axis=0)
-        it_pruning = iterations + 500
-
-        overall_it = np.concatenate((iterations, it_pruning)) if iterations.size > 0 and it_pruning.size > 0 else np.array([])
-        clustering_values = np.array(sim_data["Clustering"])
-        if clustering_values.ndim == 0:
-            clustering_values = np.expand_dims(clustering_values, axis=0)
-        overall_cc = np.concatenate((clustering_values, clustering_values)) if clustering_values.size > 0 else np.array([])
-
-        if overall_it.size == 0 or overall_cc.size == 0:
-            continue
+        overall_it, overall_cc = concatenated_data[Sim]
 
         # plots data
         print(f"----------------Plotting {Sim}---------------------")
@@ -1442,30 +1422,26 @@ def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
                                              "ytick.labelsize": 8})
 
         ax = sns.lineplot(x=overall_it, y=overall_cc, markers=True, linewidth=2.5,
-                          label=legend[to_overlay.index(Sim)])
+                          label=legend[to_overlay.index(Sim)], color=color[Sim])
         ax.set(yscale="log")
         ax.set_ylim(10**-5, 10**0)
         ax.axvline(x=500, ymin=0, ymax=1, linestyle="dashed", color="0.8")
         ax.axvspan(0, 500, alpha=0.05)
         sns.despine()
 
-        plt.legend(loc=1)
-
-    Sim = 0
+        plt.legend(loc='lower right')
 
     # sets labels
     ax.set_title("Average clustering coefficient")
     ax.set_ylabel("Clustering coefficient")
     ax.set_xlabel("Iteration")
-    ##ax.set_ylim(0, 0.1)
     ax.set_xlim(0, 5500)
 
     # save to file
     if not os.path.exists(exportpath + "Clustering"):  # creates export directory
         os.makedirs(exportpath + "Clustering")
 
-    plt.savefig(exportpath + "Clustering/CC_loglog" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim + 1]) + "_"
-                + str(to_overlay[Sim + 2]) + ".png", bbox_inches="tight")
+    plt.savefig(exportpath + "Clustering/CC_loglog" + "_".join(map(str, to_overlay)) + ".png", bbox_inches="tight")
 
     plt.close(fig)
     gc.collect()
@@ -2091,43 +2067,29 @@ def plot_synaptic_fraction(NeuN_Syn, exportpath):
 
 
 def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_overlay):
-    """ Function to plot overlayed curves of synaptic preservation of three different conditions of the Mota's Model
+    """
+    Function to plot overlayed curves of synaptic preservation of three different conditions of the Mota's Model.
 
-     Arguments:
+    Arguments:
+        datapath (str): Path to the directory containing the pickled files.
+        exportpath (str): Path to export the figures.
+        color (dict): Dictionary mapping Sim values to colors.
+        legend (list): List of legend labels.
+        to_overlay (list): List of Sim values to overlay in the plot.
 
-            NeuN_Syn (dict): Path to a dictionary containing labels, stages, iterations, neurons per iteration and
-            synapses per it
-            exportpath(str): Path to export the dataset as a csv
-
-       Returns:
-
-          Plots of degree distributions
-
-   """
-
-    data_path = datapath + "NeuN_Syn.pkl"
-
-    with open(data_path, 'rb') as fp:  # The ** argument is imported as a dictionary
-        NeuN_Syn = pickle.load(fp)
+    Returns:
+        int: 0 if successful.
+    """
+    concatenated_data = load_and_concatenate_data(datapath, 'neun_syn')
 
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
 
     for Sim in to_overlay:
-        sim_data = NeuN_Syn.get(Sim, {})
 
-        iterations = np.array(sim_data.get("Iteration", []))
-        if iterations.ndim == 0:
-            iterations = np.expand_dims(iterations, axis=0)
-        it_pruning = iterations + 500
-
-        overall_it = np.concatenate((iterations, it_pruning)) if iterations.size > 0 and it_pruning.size > 0 else np.array([])
-        syn_values = np.array(sim_data.get("Syn", []))
-        if syn_values.ndim == 0:
-            syn_values = np.expand_dims(syn_values, axis=0)
-        overall_syn = np.concatenate((syn_values, syn_values)) if syn_values.size > 0 else np.array([])
-
-        if overall_it.size == 0 or overall_syn.size == 0:
+        if Sim not in concatenated_data:
             continue
+
+        overall_it, overall_syn = concatenated_data[Sim]
 
         # plots data
         print(f"----------------Plotting {Sim}---------------------")
@@ -2147,8 +2109,6 @@ def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_ove
 
         plt.legend(loc=1)
 
-    Sim = 0
-
     # sets labels
     ax.set_title("Preservation of Synapses over time ")
     ax.set_ylabel("Synaptic count")
@@ -2160,14 +2120,12 @@ def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_ove
     if not os.path.exists(exportpath + "Synaptic_Preservation"):  # creates export directory
         os.makedirs(exportpath + "Synaptic_Preservation")
 
-    plt.savefig(exportpath + "Synaptic_Preservation/SP" + str(to_overlay[Sim]) + "_" + str(to_overlay[Sim+1]) + "_"
-                + str(to_overlay[Sim+2]) + ".png", bbox_inches="tight")
+    plt.savefig(exportpath + "Synaptic_Preservation/SP" + "_".join(map(str, to_overlay)) + ".png", bbox_inches="tight")
 
     plt.close(fig)
     gc.collect()
 
     return 0
-
 
 
 def network_labelling(netpath):
