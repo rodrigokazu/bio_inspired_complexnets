@@ -256,3 +256,19 @@ def parallel_neun_syn_counts(allnets, exportpath):
     Returns:
         dict: Neuron and synapse counts.
     """
+
+# The data exported from the analysis should be in the following format: 
+
+Clustering Data (clustering.pkl):
+
+Type: List of dictionaries
+Keys: ['Simulation', 'Network', 'Label', 'Iteration', 'Clustering', 'Type']
+Average Path Length Data (averagepaths.pkl):
+
+Type: List of dictionaries
+Keys: ['Simulation', 'Network', 'Label', 'Iteration', 'AveragePathLength', 'Type']
+Note: The correct key for path length is 'AveragePathLength', not 'PathLength'
+NeuN and Synapse Data (NeuN_Syn.pkl):
+
+Type: Dictionary
+Keys within each simulation: ['Labels', 'Stage', 'Iteration', 'NeuN', 'Syn', 'Active_NeuN', 'it_d', 'it_p', 'neun_d', 'neun_p', 'syn_d', 'syn_p']
