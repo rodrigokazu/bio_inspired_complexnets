@@ -263,10 +263,12 @@ Clustering Data (clustering.pkl):
 
 Type: List of dictionaries
 Keys: ['Simulation', 'Network', 'Label', 'Iteration', 'Clustering', 'Type']
+
 Average Path Length Data (averagepaths.pkl):
 
 Type: List of dictionaries
 Keys: ['Simulation', 'Network', 'Label', 'Iteration', 'AveragePathLength', 'Type']
+
 Note: The correct key for path length is 'AveragePathLength', not 'PathLength'
 NeuN and Synapse Data (NeuN_Syn.pkl):
 
