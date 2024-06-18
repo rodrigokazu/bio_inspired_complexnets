@@ -13,6 +13,7 @@
 
 import gc
 import igraph
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import multiprocessing
@@ -26,9 +27,13 @@ import seaborn as sns
 import threading
 import time
 
-from scipy.sparse import csgraph, diags
+from scipy.sparse import csgraph, diags, csr_matrix
 from scipy.sparse.linalg import eigsh
 from joblib import Parallel, delayed
+
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
 
 
 # ----------------------------------------------------------------------------------------------------------------- #
@@ -75,30 +80,49 @@ def analyse_all(allnets, exportpath, **datapath):
     for process in processes:
         process.join()
 
-"""
-def compute_fiedler(net_path):
 
-     Computes the Fiedler value for a single network
+def compute_fiedler(network_path):
+    """ Computes the Fiedler value of a network
 
+        Arguments:
+            network_path (str): Path to the network file
+
+        Returns:
+            dict: A dictionary containing the Fiedler value and other relevant information
+    """
     try:
-        net = igraph.Graph.Read(net_path)
-        adjacency_matrix = np.array(net.get_adjacency().data)
-        sparse_adjacency_matrix = csr_matrix(adjacency_matrix)
-        laplacian_matrix = csgraph_laplacian(sparse_adjacency_matrix, normed=False)
-        eigenvalues = eigsh(laplacian_matrix, k=2, which='SM', return_eigenvectors=False)
-        fiedler_value = sorted(eigenvalues)[1]  # The second smallest eigenvalue
-        label = network_labelling(net_path)
+        logging.info(f"Processing network: {network_path}")
+
+        # Read the network
+        net = igraph.Graph.Read_Edgelist(network_path)
+
+        if net.vcount() < 2:  # Fiedler value is not defined for networks with less than 2 nodes
+            logging.warning(f"Network {network_path} has less than 2 nodes.")
+            return None
+
+        # Get the adjacency matrix in sparse format
+        adj_matrix = csr_matrix(net.get_adjacency().data)
+
+        # Compute the Laplacian matrix
+        laplacian = csgraph.laplacian(adj_matrix, normed=True)
+
+        # Compute the second smallest eigenvalue (Fiedler value)
+        eigenvalues, _ = eigsh(laplacian, k=2, which='SM')
+        fiedler_value = eigenvalues[1]  # Second smallest eigenvalue
+
+        # Extract labels
+        label = network_labelling(network_path)
+
         return {
-            "Network": net_path,
-            "Label": label[0],
+            "Simulation": label[0],
+            "Network": network_path,
             "Iteration": int(label[1]),
-            "FiedlerValue": fiedler_value,
-            "Type": "death" if 'death' in label[0] else "pruning"
+            "FiedlerValue": fiedler_value
         }
     except Exception as e:
-        print(f"Error computing Fiedler value for {net_path}: {e}")
+        logging.error(f"Error computing Fiedler value for {network_path}: {e}")
         return None
-"""
+
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
 
@@ -559,9 +583,16 @@ def parallel_fiedler_value(allnets, exportpath):
     """
 
     all_net_paths = [(Sim, net) for Sim in allnets for net in allnets[Sim] if os.path.getsize(net) > 0]
+    logging.info(f"Total networks to process: {len(all_net_paths)}")
+
     fiedler_values = Parallel(n_jobs=-1)(delayed(compute_fiedler)(net) for Sim, net in all_net_paths)
 
+    # Filter out None values
     fiedler_values = [fv for fv in fiedler_values if fv is not None]
+
+    if not fiedler_values:
+        logging.error("No valid Fiedler values were computed.")
+        return None
 
     df = pd.DataFrame(fiedler_values)
     df.to_csv(os.path.join(exportpath, 'FiedlerValues.csv'), index=False)
@@ -569,7 +600,7 @@ def parallel_fiedler_value(allnets, exportpath):
     with open(os.path.join(exportpath, 'fiedler_values.pkl'), 'wb') as fp:
         pickle.dump(fiedler_values, fp)
 
-    print('Fiedler values saved successfully to file')
+    logging.info('Fiedler values saved successfully to file')
 
     return fiedler_values
 
