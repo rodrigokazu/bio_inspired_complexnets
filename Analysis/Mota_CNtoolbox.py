@@ -67,9 +67,7 @@ def analyse_all(allnets, exportpath, **datapath):
         multiprocessing.Process(target=parallel_neun_syn_counts, args=(allnets, exportpath)),
         multiprocessing.Process(target=parallel_averagepaths, args=(allnets, exportpath)),
         multiprocessing.Process(target=parallel_clusters, args=(allnets, exportpath)),
-        multiprocessing.Process(target=parallel_fitnet, args=(allnets, exportpath)),
-        multiprocessing.Process(target=parallel_fitnet, args=(allnets, exportpath))
-    ]
+        multiprocessing.Process(target=parallel_fitnet, args=(allnets, exportpath))]
 
     for process in processes:
         process.start()
@@ -77,10 +75,10 @@ def analyse_all(allnets, exportpath, **datapath):
     for process in processes:
         process.join()
 
-
+"""
 def compute_fiedler(net_path):
 
-    """ Computes the Fiedler value for a single network """
+     Computes the Fiedler value for a single network
 
     try:
         net = igraph.Graph.Read(net_path)
@@ -100,7 +98,7 @@ def compute_fiedler(net_path):
     except Exception as e:
         print(f"Error computing Fiedler value for {net_path}: {e}")
         return None
-
+"""
 
 def fit_net(label, nets, Sim, exportpath, save_graphs=False):
 
@@ -172,6 +170,7 @@ def fit_net(label, nets, Sim, exportpath, save_graphs=False):
 
     return stage, int(it), fit.power_law.alpha, fit.power_law.D
 
+
 def inspect_data_structure(data, name):
 
     print(f"Inspecting data structure for {name}:")
@@ -197,18 +196,20 @@ def inspect_data_structure(data, name):
 
 def load_and_concatenate_data(datapath, data_type):
     """
-    Load the pickled file and concatenate the values and iterations for each simulation,
-    adding 500 to iterations that came from pruning if applicable.
+    Load the pickled file and structure the data into a dictionary with simulation names as keys,
+    each containing two lists: iterations and syn values (for 'neun_syn') or appropriate fields for
+    'clustering' and 'averagepaths'.
 
     Arguments:
         datapath (str): Path to the directory containing the pickled files.
         data_type (str): Type of data to load ('averagepaths', 'clustering', or 'neun_syn').
 
     Returns:
-        dict: A dictionary with simulation names as keys and a tuple of two lists (iterations, values) as values.
+        dict: A dictionary with simulation names as keys and a dictionary containing two lists
+              ('iterations', 'syn_values') as values for 'neun_syn' or appropriate fields for other types.
     """
-    # Map data types to filenames and keys
-    data_file_map = {
+
+    data_files = {
         'averagepaths': 'averagepaths.pkl',
         'clustering': 'clustering.pkl',
         'neun_syn': 'NeuN_Syn.pkl'
@@ -221,38 +222,52 @@ def load_and_concatenate_data(datapath, data_type):
         'neun_syn': 'Syn'  # Assuming we are interested in Syn values
     }
 
-    data_path = os.path.join(datapath, data_file_map[data_type])  # Construct the full path to the pickle file
     value_key = value_key_map[data_type]  # Get the key to extract the values
 
-    with open(data_path, 'rb') as fp:  # Load the pickled file
-        data = pickle.load(fp)
+    if data_type not in data_files:
 
-    concatenated_data = {}  # Initialize an empty dictionary to store the concatenated data
+        raise ValueError("Invalid data_type. Choose from 'averagepaths', 'clustering', or 'neun_syn'.")
+
+    file_path = os.path.join(datapath, data_files[data_type])
+
+    with open(file_path, 'rb') as file:
+        data = pickle.load(file)
+
+    result = {}
 
     if data_type == 'neun_syn':
-        # For NeuN_Syn data, iterate over dictionary keys
-        for Sim, sim_data in data.items():
-            iterations = np.array(sim_data["Iteration"])
-            values = np.array(sim_data.get(value_key, []))
-            label = sim_data.get("Label", "")
+        for sim_name, sim_data in data.items():
+            # Initialize lists for iterations and syn values
+            iterations = []
+            syn_values = []
 
-            # Ensure both arrays are at least 1-dimensional
-            if iterations.ndim == 0:
-                iterations = np.expand_dims(iterations, axis=0)
-            if values.ndim == 0:
-                values = np.expand_dims(values, axis=0)
+            # Extract and process the fields as specified
+            it_d = sim_data.get('it_d', [])
+            syn_d = sim_data.get('syn_d', [])
+            it_p = sim_data.get('it_p', [])
+            syn_p = sim_data.get('syn_p', [])
 
-            if Sim not in concatenated_data:
-                concatenated_data[Sim] = ([], [])
+            # Directly add 'it_d' and 'syn_d' values to the lists
+            iterations.extend(it_d)
+            syn_values.extend(syn_d)
 
-            # Adjust iterations if the label indicates pruning
-            adjusted_iterations = iterations + 500 if 'pruning' in label.lower() else iterations
+            # Add 550 to 'it_p' values and then add to the iterations list
+            altered_it_p = [x + 550 for x in it_p]
+            iterations.extend(altered_it_p)
 
-            # Extend the lists with the new data
-            concatenated_data[Sim][0].extend(adjusted_iterations.tolist())
-            concatenated_data[Sim][1].extend(values.tolist())
-    else:
-        # For averagepaths and clustering data, iterate over list elements
+            # Add 'syn_p' values to the syn values list
+            syn_values.extend(syn_p)
+
+            # Store the extracted and processed data in the result dictionary
+            result[sim_name] = {
+                'iterations': iterations,
+                'syn_values': syn_values
+            }
+
+    elif data_type == 'clustering' or data_type == 'averagepaths': # For averagepaths and clustering data, iterate over list elements
+
+        concatenated_data = dict()
+
         for sim_data in data:
             Sim = sim_data.get("Simulation")
             iterations = np.array(sim_data["Iteration"])
@@ -269,13 +284,16 @@ def load_and_concatenate_data(datapath, data_type):
                 concatenated_data[Sim] = ([], [])
 
             # Adjust iterations if the label indicates pruning
-            adjusted_iterations = iterations + 500 if 'pruning' in label.lower() else iterations
+            adjusted_iterations = iterations + 550 if 'pruning' in label.lower() else iterations
 
             # Extend the lists with the new data
             concatenated_data[Sim][0].extend(adjusted_iterations.tolist())
             concatenated_data[Sim][1].extend(values.tolist())
 
-    return concatenated_data
+        # Store the extracted and processed data in the result dictionary
+        result = concatenated_data
+
+    return result
 
 
 def network_acquisition(density_path):
@@ -994,6 +1012,7 @@ def write_metrics(metric, exportpath, name, label):
 # ----------------------------------------------------------------------------------------------------------------- #
 
 def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
+
     """
     Plots the analysis for the networks modelled at 50k neurons density and export results;
     This function initiates all the processes and runs the analysis in parallel for the same network;
@@ -1015,21 +1034,21 @@ def plot_ALL_analysis(allnets, color, exportpath, legend, to_overlay, datapath):
     p2 = multiprocessing.Process(target=plot_pruningrate, args=(color, datapath, exportpath, legend, to_overlay))
     p3 = multiprocessing.Process(target=plot_clustering_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
     p4 = multiprocessing.Process(target=plot_averagepath_lineplot, args=(color, datapath, exportpath, legend, to_overlay))
-    #p5 = multiprocessing.Process(target=plot_alpha_D, args=(datapath, exportpath))
+    p5 = multiprocessing.Process(target=plot_alpha_D, args=(datapath, exportpath))
     p6 = multiprocessing.Process(target=plot_synaptic_fraction_overlayed, args=(color, datapath, exportpath, legend, to_overlay))
 
     #p1.start()
     p2.start()
     p3.start()
     p4.start()
-    #p5.start()
+    p5.start()
     p6.start()
 
     #p1.join()
     p2.join()
     p3.join()
     p4.join()
-    #p5.join()
+    p5.join()
     p6.join()
 
 
@@ -1267,7 +1286,6 @@ def plot_alpha_D(datapath, exportpath):
     return 0
 
 
-
 def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
 
     """
@@ -1288,10 +1306,11 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
     fig = plt.figure(figsize=(5, 5), dpi=500)  # generating the figure
 
     for Sim in to_overlay:
+
         if Sim not in concatenated_data:
             continue
 
-        overall_it, overall_ap = concatenated_data[Sim]
+        overall_it, overall_syn = concatenated_data[Sim]
 
         # plots data
         print(f"----------------Plotting {Sim}---------------------")
@@ -1302,7 +1321,7 @@ def plot_averagepath_lineplot(color, datapath, exportpath, legend, to_overlay):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=overall_it, y=overall_ap, markers=True, linewidth=2.5,
+        ax = sns.lineplot(x=overall_it, y=overall_syn, markers=True, linewidth=2.5,
                           label=legend[to_overlay.index(Sim)], color=color[Sim])
 
         ax.axvline(x=500, ymin=0, ymax=7, linestyle="dashed", color="0.8")
@@ -1388,7 +1407,9 @@ def plot_betweenness_centrality(allnets, exportpath):
                 del net
                 gc.collect()
 
+
 def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
+
     """
     Function to plot overlayed progression of the clustering coefficient of three different conditions of the Mota's Model.
 
@@ -1410,7 +1431,7 @@ def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
         if Sim not in concatenated_data:
             continue
 
-        overall_it, overall_cc = concatenated_data[Sim]
+        overall_it, overall_syn = concatenated_data[Sim]
 
         # plots data
         print(f"----------------Plotting {Sim}---------------------")
@@ -1421,7 +1442,7 @@ def plot_clustering_lineplot(color, datapath, exportpath, legend, to_overlay):
                                              "lines.linewidth": 2, "xtick.labelsize": 8,
                                              "ytick.labelsize": 8})
 
-        ax = sns.lineplot(x=overall_it, y=overall_cc, markers=True, linewidth=2.5,
+        ax = sns.lineplot(x=overall_it, y=overall_syn, markers=True, linewidth=2.5,
                           label=legend[to_overlay.index(Sim)], color=color[Sim])
         ax.set(yscale="log")
         ax.set_ylim(10**-5, 10**0)
@@ -2089,7 +2110,10 @@ def plot_synaptic_fraction_overlayed(color, datapath, exportpath, legend, to_ove
         if Sim not in concatenated_data:
             continue
 
-        overall_it, overall_syn = concatenated_data[Sim]
+        concatenated_Sim = concatenated_data[Sim]
+
+        overall_it = concatenated_Sim['iterations']
+        overall_syn = concatenated_Sim['syn_values']
 
         # plots data
         print(f"----------------Plotting {Sim}---------------------")

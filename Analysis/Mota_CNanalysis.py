@@ -49,21 +49,23 @@ fiftynets = Mota_CNtoolbox.network_acquisition(paths[0])
 #hundrednets = Mota_CNtoolbox.network_acquisition(paths[1])
 keynets = Mota_CNtoolbox.network_acquisition(paths[1])  # For reference
 
+
 # Key arguments for plotting and analysis #
 
+"""
 to_overlay = ['Sim 1y', 'Sim 2y', 'Sim 6y']
 legend = ["Our model", "Random Death", "Random Pruning"]
-color = {"Sim 6y": "r", "Sim 2y": [1.0000, 0.4980, 0.], "Sim 1y": "b"}
 
 """
 # FF arguments #
 
-# to_overlay = ['Sim 8y', 'Sim 7y', 'Sim 1y']  # FF
-# legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
-# sns.set_palette("Blues_r")  # FF
+to_overlay = ['Sim 8y', 'Sim 7y', 'Sim 1y']  # FF
+legend = ["Feed-forwardness 50%", "Feed-forwardness 80%", "Feed-forwardness 100%"]  # FF
 
 
-"""
+color = {"Sim 8y": "#a5c2cf", "Sim 7y": "#4f81bd",  "Sim 1y": "#08306b",  "Sim 6y": "#993333", "Sim 2y": "#ff9966"}
+
+
 # Actual analysis #
 
 if __name__ == '__main__':
@@ -74,7 +76,5 @@ if __name__ == '__main__':
     end_time = time.time()
 
     print(f"Multiprocessing time taken: {end_time - start_time} seconds")
-
-
 
 
